@@ -954,8 +954,8 @@ function htmlToBase64DataURI_UTF8(html) {
 //     { path: "/foo/bar/b.js", text: "abc3" },
 //   ];
 //
-//   // ã€Œ/ã€ã‚’ãƒ«ãƒ¼ãƒˆã¨ã—ã¦ã€virtualFilesã§å®šç¾©ã•ã‚ŒãŸã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’
-//   // ãƒ•ã‚¡ã‚¤ãƒ«ã‚·ã‚¹ãƒ†ãƒ ã«æ›¸ãå‡ºã™ã‚³ãƒ¼ãƒ‰
+//   // u/v‚ðƒ‹[ƒg‚Æ‚µ‚ÄAvirtualFiles‚Å’è‹`‚³‚ê‚½‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹‚ð
+//   // ƒtƒ@ƒCƒ‹ƒVƒXƒeƒ€‚É‘‚«o‚·ƒR[ƒh
 // }
 
 async function exportFiles() {
@@ -987,17 +987,17 @@ async function exportFiles() {
   //console.log(virtualFiles);
 
   for (const file of virtualFiles) {
-    // ãƒ‘ã‚¹ã‚’åˆ†è§£ã—ã¦ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªéƒ¨åˆ†ã¨ãƒ•ã‚¡ã‚¤ãƒ«åã«åˆ†ã‘ã‚‹
-    const parts = file.path.split("/").filter(Boolean); // ["foo", "a.js"] ãªã©
-    const filename = parts.pop(); // ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å–å¾—
+    // ƒpƒX‚ð•ª‰ð‚µ‚ÄƒfƒBƒŒƒNƒgƒŠ•”•ª‚Æƒtƒ@ƒCƒ‹–¼‚É•ª‚¯‚é
+    const parts = file.path.split("/").filter(Boolean); // ["foo", "a.js"] ‚È‚Ç
+    const filename = parts.pop(); // ƒtƒ@ƒCƒ‹–¼‚ðŽæ“¾
     let currentDir = dhandle;
 
-    // ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒã‚ã‚Œã°è¾¿ã£ã¦ã€ãªã‘ã‚Œã°ä½œæˆ
+    // ƒfƒBƒŒƒNƒgƒŠ‚ª‚ ‚ê‚Î’H‚Á‚ÄA‚È‚¯‚ê‚Îì¬
     for (const part of parts) {
       currentDir = await currentDir.getDirectoryHandle(part, { create: true });
     }
 
-    // ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ä½œæˆã—ã€å†…å®¹ã‚’æ›¸ãè¾¼ã‚€
+    // ƒtƒ@ƒCƒ‹‚ðì¬‚µA“à—e‚ð‘‚«ž‚Þ
     const fileHandle = await currentDir.getFileHandle(filename, {
       create: true,
     });
@@ -1034,6 +1034,7 @@ async function importFiles() {
           "mpg",
           "wav",
           "mp3",
+          "glb",
         ];
         if (binaryExtensions.indexOf(extension) >= 0) {
           isBinary = true;
@@ -1180,7 +1181,7 @@ Would you like to overwrite it?
         newfile = await createFile(newpath);
       }
 
-      let binaryExtensions = ["jpeg", "png", "gif", "bmp", "mpg", "wav", "mp3"];
+      let binaryExtensions = ["jpeg", "png", "gif", "bmp", "mpg", "wav", "mp3", "glb"];
       if (binaryExtensions.indexOf(extension) >= 0) {
         newfile.text = "";
         newfile.binary = true;

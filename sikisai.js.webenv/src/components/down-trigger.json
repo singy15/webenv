@@ -1,0 +1,42 @@
+{
+	"name": "downTrigger",
+	"methods": {
+		"init": {
+			"args": "",
+			"code": "//noop"
+		},
+		"run": {
+			"args": "",
+			"code": "if(this.entity.physics.v.y > 0.0) {\n  this.entity.killable.kill();\n  this.handler();\n}"
+		}
+	},
+	"dependencies": [
+		{
+			"oid": "acc285a9-cb44-4955-b247-992c7b4cb660",
+			"name": "killable"
+		},
+		{
+			"oid": "badc2a81-4854-4251-afe6-8b0b44e18d2c",
+			"dependencyName": "",
+			"name": "physics"
+		}
+	],
+	"ctorParams": [
+		{
+			"oid": "2cefd925-47ff-4182-8967-fc6768368c25",
+			"name": "handler"
+		}
+	],
+	"attributes": [
+		{
+			"oid": "9d9f31a1-1a2d-44ed-b552-f294f0aaa494",
+			"attributeName": "",
+			"defaultValue": "handler",
+			"name": "handler"
+		}
+	],
+	"enableTask": true,
+	"unregisterWhenKilled": true,
+	"taskPriority": "TaskPriorities.update",
+	"note": "physics component"
+}

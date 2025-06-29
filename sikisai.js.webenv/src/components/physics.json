@@ -1,0 +1,81 @@
+{
+	"name": "physics",
+	"methods": {
+    "init": {
+      "args": "",
+      "code": "//noop"
+    },
+		"run": {
+			"args": "",
+			"code": "let p = this.p;\nlet v = this.v;\nthis.op = this.p.dup();\nthis.ov = this.v.dup();\nv.add(this.g);\nv.sub(v.dup().mult(this.vdump));\np.add(v);\nthis.r = this.r + this.vr;"
+		},
+		"impulse": {
+			"args": "",
+			"code": "this.v.add(v);"
+		},
+		"spin": {
+			"args": "",
+			"code": "this.vr += v;"
+		}
+	},
+	"dependencies": [
+		{
+			"oid": "bfcae758-45b7-4622-ace9-de08a5e17747",
+			"name": "killable"
+		}
+	],
+	"ctorParams": [],
+	"attributes": [
+		{
+			"oid": "f5ab12cb-4153-4e5a-a6a6-2b64c217ee16",
+			"name": "p",
+			"defaultValue": "v$(0.0,0.0)"
+		},
+		{
+			"oid": "b63bdc54-225e-4d19-9c6e-5739bda9c8fd",
+			"attributeName": "",
+			"defaultValue": "v$(0.0,0.0)",
+			"name": "op"
+		},
+		{
+			"oid": "7f9170f3-fa59-49fc-ad19-a2bbb4d59078",
+			"attributeName": "",
+			"defaultValue": "v$(0.0,0.0)",
+			"name": "v"
+		},
+		{
+			"oid": "469e1fc6-bb82-4332-abd4-fe34d43c0884",
+			"attributeName": "",
+			"defaultValue": "v$(0.0,0.0)",
+			"name": "ov"
+		},
+		{
+			"oid": "61683f1b-843e-47fc-9747-df55647b0fde",
+			"attributeName": "",
+			"defaultValue": "0.0",
+			"name": "vdump"
+		},
+		{
+			"oid": "7123dbc0-32f0-49a2-aa0e-f072943a1b78",
+			"attributeName": "",
+			"defaultValue": "v$(0.0,0.0)",
+			"name": "g"
+		},
+		{
+			"oid": "5f22799f-8004-4b22-a80d-3b4ab40f4670",
+			"attributeName": "",
+			"defaultValue": "0.0",
+			"name": "r"
+		},
+		{
+			"oid": "b3de6616-8a31-4d77-93b9-35832f9f8999",
+			"attributeName": "",
+			"defaultValue": "0.0",
+			"name": "vr"
+		}
+	],
+	"enableTask": true,
+	"unregisterWhenKilled": true,
+	"taskPriority": "TaskPriorities.update",
+	"note": "physics component"
+}

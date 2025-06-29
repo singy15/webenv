@@ -1,0 +1,53 @@
+{
+	"name": "interval",
+	"methods": {
+		"init": {
+			"args": "",
+			"code": "//noop"
+		},
+		"run": {
+			"args": "",
+			"code": "this.t++;\nif(this.t % this.interval === 0) {\n  this.handler();\n}"
+		},
+		"setInterval": {
+			"args": "interval",
+			"code": "this.interval = interval;"
+		}
+	},
+	"dependencies": [
+		{
+			"oid": "22671905-8100-4ee0-995b-1fe555d074ba",
+			"name": "killable"
+		}
+	],
+	"ctorParams": [
+		{
+			"oid": "2ab4da17-8ed4-45d7-982f-4e9936008d40",
+			"ctorParamName": "",
+			"name": "handler"
+		}
+	],
+	"attributes": [
+		{
+			"oid": "f0122b92-4cf6-4343-ab49-644953833934",
+			"name": "t",
+			"defaultValue": "0",
+			"static": false
+		},
+		{
+			"oid": "3ec1fce9-0990-441d-b73a-5e1fe98685c2",
+			"name": "interval",
+			"defaultValue": "60",
+			"static": false
+		},
+		{
+			"oid": "431d1783-9301-4dee-8c0d-187eb9ea4fac",
+			"attributeName": "",
+			"defaultValue": "handler",
+			"name": "handler"
+		}
+	],
+	"enableTask": true,
+	"unregisterWhenKilled": true,
+	"taskPriority": "TaskPriorities.update"
+}

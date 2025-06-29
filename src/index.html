@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>webenv</title>
+  </head>
+  <body>
+    <script type="text/javascript">
+      try {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker
+            .register(`/sw.js?version=${Date.now()}` /*, { type: "module" }*/)
+            .then(function () {
+              //console.log("Service Worker Registered");
+            })
+            .catch(function () {
+              console.log("Service Worker Not Registered");
+            });
+        }
+      } catch(e) {
+        console.log(e);
+      }
+    </script>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

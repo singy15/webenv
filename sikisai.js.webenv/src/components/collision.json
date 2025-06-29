@@ -1,0 +1,67 @@
+{
+	"name": "collision",
+	"methods": {
+		"init": {
+			"args": "",
+			"code": "CollisionComponent.collisions.append(this);"
+		},
+		"run": {
+			"args": "",
+			"code": "let collisions = CollisionComponent.collisions;\nlet p = this.entity.physics.p;\nlet r = this.radius;\ncollisions.each((e, i, l, n) => {\n  if (e.entity.killable.killed) {\n    l.removeNode(i.currNode());\n    return;\n  }\n  if (e.entity === this.entity) return;\n  let p2 = e.entity.physics.p;\n  let r2 = e.radius;\n  if (p.dup().sub(p2).norm() < r + r2) {\n    this.handler(this, e);\n  }\n});"
+		},
+		"setRadius": {
+			"args": "radius",
+			"code": "this.radius = radius;"
+		},
+		"setTag": {
+			"args": "tag",
+			"code": "this.tag = tag;"
+		}
+	},
+	"dependencies": [
+		{
+			"oid": "70f0c0fa-49de-434a-89c6-5e63a7ea6908",
+			"name": "killable"
+		},
+		{
+			"oid": "0b8a9acd-d6ef-4ae4-b9d3-6de09ea81b96",
+			"dependencyName": "",
+			"name": "physics"
+		}
+	],
+	"ctorParams": [
+		{
+			"oid": "6b3701aa-8188-428e-84d3-ad6030f9565d",
+			"name": "handler"
+		}
+	],
+	"attributes": [
+		{
+			"oid": "f9e590e1-e634-413d-a4b2-3005dfb0701b",
+			"name": "collisions",
+			"defaultValue": "new List()",
+			"static": true
+		},
+		{
+			"oid": "fc1a1728-8f53-4067-a1ea-107fa115f748",
+			"attributeName": "",
+			"defaultValue": "\"default\"",
+			"name": "tag"
+		},
+		{
+			"oid": "284650c3-1478-4ca2-ae2c-074c298c0cff",
+			"attributeName": "",
+			"defaultValue": "handler",
+			"name": "handler"
+		},
+		{
+			"oid": "ab26d754-121e-4881-8a3f-d25be6932f15",
+			"attributeName": "",
+			"defaultValue": "16.0",
+			"name": "radius"
+		}
+	],
+	"enableTask": true,
+	"unregisterWhenKilled": true,
+	"taskPriority": "TaskPriorities.update"
+}

@@ -1,0 +1,35 @@
+{
+	"name": "sample1",
+	"methods": {
+		"run": {
+			"args": "",
+			"code": "//noop"
+		},
+		"method1": {
+			"args": "param1, param2",
+			"code": "return param1 + param2;"
+		}
+	},
+	"dependencies": [
+		{
+			"oid": "dda5cb2e-17d3-4fd6-890a-c1b19342c498",
+			"name": "killable"
+		}
+	],
+	"ctorParams": [
+		{
+			"oid": "6b2ed9c4-35cd-4a2e-bd29-801a2b9bdc19",
+			"name": "param1"
+		}
+	],
+	"attributes": [
+		{
+			"oid": "9beef258-78cf-40c2-867e-b14386f29250",
+			"name": "attr1",
+			"defaultValue": "null"
+		}
+	],
+	"enableTask": true,
+	"unregisterWhenKilled": true,
+	"taskPriority": 10000
+}

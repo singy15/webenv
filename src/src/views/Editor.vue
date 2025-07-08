@@ -954,8 +954,8 @@ function htmlToBase64DataURI_UTF8(html) {
 //     { path: "/foo/bar/b.js", text: "abc3" },
 //   ];
 //
-//   // u/v‚ðƒ‹[ƒg‚Æ‚µ‚ÄAvirtualFiles‚Å’è‹`‚³‚ê‚½‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹‚ð
-//   // ƒtƒ@ƒCƒ‹ƒVƒXƒeƒ€‚É‘‚«o‚·ƒR[ƒh
+//   // ï¿½u/ï¿½vï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½gï¿½Æ‚ï¿½ï¿½ÄAvirtualFilesï¿½Å’ï¿½`ï¿½ï¿½ï¿½ê‚½ï¿½ï¿½ï¿½×‚Ä‚Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½
+//   // ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Éï¿½ï¿½ï¿½ï¿½oï¿½ï¿½ï¿½Rï¿½[ï¿½h
 // }
 
 async function exportFiles() {
@@ -987,17 +987,14 @@ async function exportFiles() {
   //console.log(virtualFiles);
 
   for (const file of virtualFiles) {
-    // ƒpƒX‚ð•ª‰ð‚µ‚ÄƒfƒBƒŒƒNƒgƒŠ•”•ª‚Æƒtƒ@ƒCƒ‹–¼‚É•ª‚¯‚é
-    const parts = file.path.split("/").filter(Boolean); // ["foo", "a.js"] ‚È‚Ç
-    const filename = parts.pop(); // ƒtƒ@ƒCƒ‹–¼‚ðŽæ“¾
+    const parts = file.path.split("/").filter(Boolean); // ["foo", "a.js"] ï¿½È‚ï¿½
+    const filename = parts.pop();
     let currentDir = dhandle;
 
-    // ƒfƒBƒŒƒNƒgƒŠ‚ª‚ ‚ê‚Î’H‚Á‚ÄA‚È‚¯‚ê‚Îì¬
     for (const part of parts) {
       currentDir = await currentDir.getDirectoryHandle(part, { create: true });
     }
 
-    // ƒtƒ@ƒCƒ‹‚ðì¬‚µA“à—e‚ð‘‚«ž‚Þ
     const fileHandle = await currentDir.getFileHandle(filename, {
       create: true,
     });
@@ -1025,19 +1022,13 @@ async function importFiles() {
         const file = await handle.getFile();
 
         const extension = file.name.split(".").pop().toLowerCase();
-        let isBinary = false;
-        let binaryExtensions = [
-          "jpeg",
-          "png",
-          "gif",
-          "bmp",
-          "mpg",
-          "wav",
-          "mp3",
-          "glb",
-        ];
-        if (binaryExtensions.indexOf(extension) >= 0) {
-          isBinary = true;
+
+        let isBinary = determineIfBinary(extension);
+        if (isBinary == null) {
+          isBinary = confirm(
+            `Unknown extension "${extension}", import as binary file?`,
+          );
+          addKnownExtensionMapping(extension, isBinary);
         }
 
         const text = await file.text();
@@ -1135,6 +1126,42 @@ async function setBinary(oid, blob) {
   await set(`webenv/bins/${oid}`, blob);
 }
 
+let knownExtensionMapping = {
+  binary: ["jpeg", "png", "gif", "bmp", "mpg", "wav", "mp3", "glb"],
+  nonBinary: [
+    "txt",
+    "js",
+    "ts",
+    "css",
+    "scss",
+    "vue",
+    "json",
+    "html",
+    "config",
+    "xml",
+  ],
+};
+
+function determineIfBinary(extension) {
+  let ext = extension.toLowerCase();
+  if (knownExtensionMapping.binary.indexOf(ext) >= 0) return true;
+  if (knownExtensionMapping.nonBinary.indexOf(ext) >= 0) return false;
+  return null;
+}
+
+function addKnownExtensionMapping(extension, isBinary) {
+  let ext = extension.toLowerCase();
+  if (isBinary !== true && isBinary !== false)
+    throw new Error("invalid parameter");
+  if (determineIfBinary(extension) != null)
+    throw new Error("invalid operation");
+  if (isBinary) {
+    knownExtensionMapping.binary.push(ext);
+  } else {
+    knownExtensionMapping.nonBinary.push(ext);
+  }
+}
+
 async function uploadFile() {
   try {
     const fileHandles = await window.showOpenFilePicker({ multiple: true });
@@ -1181,8 +1208,15 @@ Would you like to overwrite it?
         newfile = await createFile(newpath);
       }
 
-      let binaryExtensions = ["jpeg", "png", "gif", "bmp", "mpg", "wav", "mp3", "glb"];
-      if (binaryExtensions.indexOf(extension) >= 0) {
+      let isBinary = determineIfBinary(extension);
+      if (isBinary == null) {
+        isBinary = confirm(
+          `Unknown extension "${extension}", import as binary file?`,
+        );
+        addKnownExtensionMapping(extension, isBinary);
+      }
+
+      if (isBinary) {
         newfile.text = "";
         newfile.binary = true;
         await setBinary(newfile.oid, file);

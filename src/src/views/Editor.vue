@@ -19,6 +19,12 @@ import moment from "moment";
 
 const fontSize = ref(storageUtil.getStorage("fontSize", 13));
 
+const globalMessage = ref("");
+
+function setGlobalMessage(msg) {
+  globalMessage.value = msg;
+}
+
 async function initializeIdb() {
   let catalogue = null;
   catalogue = await get(`webenv/catalogue`);
@@ -954,60 +960,126 @@ function htmlToBase64DataURI_UTF8(html) {
 //     { path: "/foo/bar/b.js", text: "abc3" },
 //   ];
 //
-//   // �u/�v�����[�g�Ƃ��āAvirtualFiles�Œ�`���ꂽ���ׂẴt�@�C����
-//   // �t�@�C���V�X�e���ɏ����o���R�[�h
 // }
 
 async function exportFiles() {
   let dhandle = await window.showDirectoryPicker({ mode: "readwrite" });
 
-  let app = await getAppByOid(currentApp.value);
+  try {
+    let app = await getAppByOid(currentApp.value);
 
-  await buildForDebug(app.oid);
-  let bundled = await get(`webenv/debug/index`);
+    setGlobalMessage(`Building...`);
+    await buildForDebug(app.oid);
+    let bundled = await get(`webenv/debug/index`);
 
-  let virtualFiles = [
-    { path: "/dist/index.html", text: bundled },
-    // { path: "/x.js", text: "abc1" },
-    // { path: "/foo/a.js", text: "abc2" },
-    // { path: "/foo/bar/b.js", text: "abc3" },
-  ];
+    let virtualFiles = [
+      { path: "/dist/index.html", text: bundled },
+      // { path: "/x.js", text: "abc1" },
+      // { path: "/foo/a.js", text: "abc2" },
+      // { path: "/foo/bar/b.js", text: "abc3" },
+    ];
 
-  for (let i = 0; i < app.files.length; i++) {
-    let foid = app.files[i];
-    let file = await getFile(foid);
-    virtualFiles.push({
-      path: "/src" + file.path,
-      text: file.text,
-      binary: file.binary,
-      oid: file.oid,
-    });
-  }
-
-  //console.log(virtualFiles);
-
-  for (const file of virtualFiles) {
-    const parts = file.path.split("/").filter(Boolean); // ["foo", "a.js"] �Ȃ�
-    const filename = parts.pop();
-    let currentDir = dhandle;
-
-    for (const part of parts) {
-      currentDir = await currentDir.getDirectoryHandle(part, { create: true });
+    for (let i = 0; i < app.files.length; i++) {
+      let foid = app.files[i];
+      let file = await getFile(foid);
+      virtualFiles.push({
+        path: "/src" + file.path,
+        text: file.text,
+        binary: file.binary,
+        oid: file.oid,
+        exported: false,
+      });
     }
 
-    const fileHandle = await currentDir.getFileHandle(filename, {
-      create: true,
-    });
-    const writable = await fileHandle.createWritable();
-    if (file.binary) {
-      await writable.write(await get(`webenv/bins/${file.oid}`));
-    } else {
-      await writable.write(file.text);
-    }
-    await writable.close();
-  }
+    setGlobalMessage("Creating directories...");
 
-  window.alert("Export completed.");
+    let dhs = {};
+
+    for (let j = 0; j < virtualFiles.length; j++) {
+      let f = virtualFiles[j];
+      let ps = f.path.split("/").filter(Boolean);
+      ps.pop();
+      if (dhs[ps.join("/")]) continue;
+      let cur = dhandle;
+      for (let i = 0; i < ps.length; i++) {
+        let part = ps[i];
+        if (part === "") continue;
+        cur = await cur.getDirectoryHandle(part, { create: true });
+      }
+      dhs[ps.join("/")] = cur;
+    }
+
+    /*
+  //await Promise.all(
+    virtualFiles.map((f) => {
+      //return (async () => {
+      (() => {
+        let ps = f.path.split("/");
+        ps.pop();
+        if(dhs[ps.join("/")]) return;
+        let cur = dhandle;
+        for (let i = 0; i < ps.length; i++) {
+          let part = ps[i];
+          if(part === "") continue;
+          cur = await cur.getDirectoryHandle(part, { create: true });
+        }
+        dhs[ps.join("/")] = cur;
+      })();
+    }),
+  //);
+  */
+
+    // for (const file of virtualFiles) {
+    //   const parts = file.path.split("/").filter(Boolean);
+    //   const filename = parts.pop();
+    //   let currentDir = dhandle;
+    //
+    //   for (const part of parts) {
+    //     currentDir = await currentDir.getDirectoryHandle(part, { create: true });
+    //   }
+    // }
+
+    setGlobalMessage("Exporting files...");
+
+    await Promise.all(
+      virtualFiles.map((file) => {
+        return (async () => {
+          const parts = file.path.split("/").filter(Boolean);
+          const filename = parts.pop();
+          let currentDir = dhandle;
+
+          // for (const part of parts) {
+          //   if(part === "") continue;
+          //   currentDir = await currentDir.getDirectoryHandle(part);
+          // }
+
+          currentDir = dhs[parts.join("/")];
+
+          const fileHandle = await currentDir.getFileHandle(filename, {
+            create: true,
+          });
+          const writable = await fileHandle.createWritable();
+          if (file.binary) {
+            await writable.write(await get(`webenv/bins/${file.oid}`));
+          } else {
+            await writable.write(file.text);
+          }
+          await writable.close();
+
+          file.exported = true;
+
+          setGlobalMessage(
+            `${virtualFiles.filter((f) => f.exported).length}/${virtualFiles.length} [${filename}] exported.`,
+          );
+        })();
+      }),
+    );
+    setGlobalMessage("Export successful.");
+    window.alert("Export completed.");
+  } catch (err) {
+    setGlobalMessage("Export failed.");
+    window.alert("Export failed.");
+  }
 }
 
 async function importFiles() {
@@ -1544,7 +1616,7 @@ function openAbout() {
           :id="`editor-${tabitem.oid}`"
           :style="{
             width: `100%`,
-            height: `calc(100% - 1.5em)`,
+            height: `calc(100% - 3em)`,
             display: tabitem == tabs.selected ? `inherit` : `none`,
           }"
           @keydown.ctrl.s.prevent.stop="setSaveTimeout(tabitem, true)"
@@ -1576,6 +1648,7 @@ function openAbout() {
           </div>
         </div>
       </template>
+      <div :style="{ width: `100%`, height: `1.5em` }">{{ globalMessage }}</div>
     </div>
   </div>
 

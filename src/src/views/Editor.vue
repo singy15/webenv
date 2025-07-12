@@ -174,6 +174,8 @@ async function onCreateNewFile() {
 
   if (!selectedItem.value) return;
 
+  console.log(selectedItem.value);
+
   if (selectedItem.value.file) {
     let file = await getFile(selectedItem.value.handle);
     let path = prompt();
@@ -407,6 +409,10 @@ const editor = reactive({
 const cssExplorerWidth = ref(`20em`);
 const cssEditorWidth = ref(`calc(100% - 18em)`);
 
+let root = {
+  path: "",
+  nodes: {},
+};
 async function openDirectory() {
   // hdir.value = await window.showDirectoryPicker({ mode: "readwrite" });
   // await set("directory", hdir.value);
@@ -440,33 +446,74 @@ async function openDirectory() {
     level: 0,
     parent: null,
     expand: true,
+    vfs: root,
+    path: "",
+    absPath: "",
   };
   treelist.value.push(workspace);
 
   let files = app.files;
+
+  root = {
+    path: "",
+    nodes: {},
+  };
+
   let unsorted = [];
   for (let i = 0; i < files.length; i++) {
     let fileOid = files[i];
     let file = await getFile(fileOid);
+
+    let paths = file.path.split("/");
+    paths.shift();
+    let cur = root;
+    paths.forEach((p, i) => {
+      if (i === paths.length - 1) {
+        cur.nodes[p] = { path: p, type: "file", file: file, fileOid: file.oid };
+      } else {
+        if (!cur.nodes[p]) {
+          cur.nodes[p] = { path: p, type: "dir", nodes: {} };
+        }
+        cur = cur.nodes[p];
+      }
+    });
+
+    // unsorted.push({
+    //   name: file.path,
+    //   handle: file.oid,
+    //   file: true,
+    //   level: 1,
+    //   parent: workspace,
+    //   expand: false,
+    // });
+  }
+
+  Object.keys(root.nodes).forEach((k) => {
+    let n = root.nodes[k];
     unsorted.push({
-      name: file.path,
-      handle: file.oid,
-      file: true,
+      name: n.path,
+      handle: n.type === "file" ? n.fileOid : null,
+      file: n.type === "file",
       level: 1,
       parent: workspace,
       expand: false,
+      vfs: n,
+      path: n.path,
+      absPath: "/" + n.path,
     });
-  }
+  });
+
+  console.log(root);
 
   // sort by pathname
   unsorted.sort((a, b) => {
-    if (a.name > b.name) {
-      return 1;
-    } else if (a.name < b.name) {
-      return -1;
-    } else {
-      return 0;
-    }
+    let fa = a.file ? 2 : 1;
+    let fb = b.file ? 2 : 1;
+    if (fa > fb) return 1;
+    if (fa < fb) return -1;
+    if (a.name > b.name) return 1;
+    if (a.name < b.name) return -1;
+    return 0;
   });
 
   unsorted.forEach((x) => {
@@ -474,6 +521,39 @@ async function openDirectory() {
   });
 
   //console.log(treelist.value);
+}
+
+async function expandTree(item) {
+  console.log("expand", item);
+  let idx = treelist.value.indexOf(item);
+  let subtree = [];
+  let subtreeDirs = [];
+  //for (let [name, handle] of item.handle) {
+  Object.keys(item.vfs.nodes).forEach((k) => {
+    let n = item.vfs.nodes[k];
+    let addTarget = n.type === "file" ? subtree : subtreeDirs;
+    addTarget.push({
+      name: n.path,
+      handle: n.type === "file" ? n.fileOid : null,
+      file: n.type === "file",
+      level: item.level + 1,
+      parent: item,
+      expand: false,
+      vfs: n,
+      path: n.path,
+      absPath: item.absPath + "/" + n.path,
+    });
+  });
+
+  subtree.sort((a, b) => {
+    return a.name === b.name ? 0 : a.name > b.name ? 1 : -1;
+  });
+  subtreeDirs.sort((a, b) => {
+    return a.name === b.name ? 0 : a.name > b.name ? 1 : -1;
+  });
+
+  treelist.value.splice(idx + 1, 0, ...[...subtreeDirs, ...subtree]);
+  item.expand = true;
 }
 
 async function openLastDirectory() {
@@ -569,33 +649,6 @@ async function saveFile(hfile, text) {
   // console.log("file saved");
 }
 
-async function expandTree(item) {
-  let idx = treelist.value.indexOf(item);
-  let subtree = [];
-  let subtreeDirs = [];
-  for await (let [name, handle] of item.handle) {
-    let addTarget = handle.kind === "file" ? subtree : subtreeDirs;
-    addTarget.push({
-      name: name,
-      handle: handle,
-      file: handle.kind === "file",
-      level: item.level + 1,
-      parent: item,
-      expand: false,
-    });
-  }
-
-  subtree.sort((a, b) => {
-    return a.name === b.name ? 0 : a.name > b.name ? 1 : -1;
-  });
-  subtreeDirs.sort((a, b) => {
-    return a.name === b.name ? 0 : a.name > b.name ? 1 : -1;
-  });
-
-  treelist.value.splice(idx + 1, 0, ...[...subtreeDirs, ...subtree]);
-  item.expand = true;
-}
-
 function prompt() {
   return window.prompt();
 }
@@ -623,6 +676,7 @@ async function clickTreeItem(item) {
     openFile(item);
   }
 
+  //console.log(item);
   selectedItem.value = item;
 }
 

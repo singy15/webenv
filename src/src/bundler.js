@@ -3,7 +3,6 @@ import { get, set } from "idb-keyval";
 import mustache from "mustache";
 import wasmUrl from "./esbuild.wasm?url";
 
-
 let bundlerInitialized = false;
 
 async function fileToUint8Array(file) {
@@ -14,6 +13,7 @@ async function fileToUint8Array(file) {
 async function build(appOid) {
   let app = await get(`webenv/apps/${appOid}`);
 
+  let importMapping = {};
   let mustacheScripts = {};
   let files = [];
   let virtualFiles = {};
@@ -30,11 +30,20 @@ async function build(appOid) {
       virtualFiles[file.path] = file.text;
     }
 
-    let pat = /@@@webenv:script\((.*)\)/
-    if(file.path.startsWith("/scripts/") && file.path.endsWith(".js")
-    && file.text.match(pat)) {
+    let pat = /@@@webenv:script\((.*)\)/;
+    if (
+      file.path.startsWith("/scripts/") &&
+      file.path.endsWith(".js") &&
+      file.text.match(pat)
+    ) {
       let match = file.text.match(pat);
       mustacheScripts[match[1]] = file.text;
+    }
+
+    let impat = /@@@importmap\((.*)\)/;
+    if (file.path.endsWith(".js") && file.text.match(impat)) {
+      let match = file.text.match(impat);
+      importMapping[match[1]] = file.path;
     }
   }
 
@@ -43,6 +52,15 @@ async function build(appOid) {
   const virtualPlugin = {
     name: "virtual-plugin",
     setup(build) {
+      Object.keys(importMapping).forEach((k) => {
+        build.onResolve({ filter: new RegExp("^" + k + "$") }, (args) => {
+          return {
+            path: importMapping[k],
+            namespace: "virtual",
+          };
+        });
+      });
+
       build.onResolve({ filter: /^[\.]+\/.*/ }, (args) => {
         //console.log("resolve1", args);
 
@@ -222,9 +240,9 @@ async function build(appOid) {
   const style = stylingTransformResult.code;
 
   // const reloadScript = `
-  // (() => { 
+  // (() => {
   //   let ver = localStorage.getItem("webenv/debug/version");
-  //   setInterval(() => { 
+  //   setInterval(() => {
   //     let now = localStorage.getItem("webenv/debug/version");
   //     if(now > ver) {
   //       ver = now;
@@ -240,7 +258,7 @@ async function build(appOid) {
     //reloadScript: reloadScript,
   };
 
-  Object.keys(mustacheScripts).forEach(k => {
+  Object.keys(mustacheScripts).forEach((k) => {
     model[k] = mustacheScripts[k];
   });
 

@@ -14,6 +14,7 @@ async function fileToUint8Array(file) {
 async function build(appOid) {
   let app = await get(`webenv/apps/${appOid}`);
 
+  let mustacheScripts = {};
   let files = [];
   let virtualFiles = {};
   let virtualFilesType = {}; // text or binary
@@ -27,6 +28,13 @@ async function build(appOid) {
     } else {
       virtualFilesType[file.path] = "text";
       virtualFiles[file.path] = file.text;
+    }
+
+    let pat = /@@@webenv:script\((.*)\)/
+    if(file.path.startsWith("/scripts/") && file.path.endsWith(".js")
+    && file.text.match(pat)) {
+      let match = file.text.match(pat);
+      mustacheScripts[match[1]] = file.text;
     }
   }
 
@@ -231,6 +239,10 @@ async function build(appOid) {
     style: style,
     //reloadScript: reloadScript,
   };
+
+  Object.keys(mustacheScripts).forEach(k => {
+    model[k] = mustacheScripts[k];
+  });
 
   const htmlView = mustache.render(htmlTemplate, model);
 

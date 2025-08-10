@@ -33,14 +33,26 @@ async function initializeIdb() {
   // initialize store
   await set(`webenv/catalogue`, []);
 
+  // create app
   let example1 = await createApp("example1");
   await addApp(example1);
   await setApp(example1);
 
+  // main script
   let main = await createFile("/main.js");
-  main.text = `console.log("it works!");`;
+  main.text = `// @@@webenv.script(main)
+
+console.log("it works!");`;
   await addFile(example1.oid, main);
 
+  // style
+  let style = await createFile("/style.css");
+  style.text = `/* @@@webenv.style(style) */
+
+.example1 { color: blue }`;
+  await addFile(example1.oid, style);
+
+  // index
   let index = await createFile("/index.html");
   index.text = `<!DOCTYPE html>
 <html>
@@ -50,9 +62,9 @@ async function initializeIdb() {
 </style>
 </head>
 <body>
-  it works!
+  <span class="example1">it works!</span>
 <script type="module" crossorigin>
-{{{ script }}}
+{{{ main }}}
 <\/script>
 </body>
 </html>
@@ -90,10 +102,21 @@ async function onCreateNewApp() {
   let newApp = await createApp(name);
   await addApp(newApp);
 
+  // main script
   let main = await createFile("/main.js");
-  main.text = `console.log("it works!");`;
+  main.text = `// @@@webenv.script(main)
+
+console.log("it works!");`;
   await addFile(newApp.oid, main);
 
+  // style
+  let style = await createFile("/style.css");
+  style.text = `/* @@@webenv.style(style) */
+
+.example1 { color: blue }`;
+  await addFile(newApp.oid, style);
+
+  // index
   let index = await createFile("/index.html");
   index.text = `<!DOCTYPE html>
 <html>
@@ -103,9 +126,9 @@ async function onCreateNewApp() {
 </style>
 </head>
 <body>
-  it works!
+  <span class="example1">it works!</span>
 <script type="module" crossorigin>
-{{{ script }}}
+{{{ main }}}
 <\/script>
 </body>
 </html>
@@ -196,7 +219,7 @@ async function onCreateNewFile() {
     let appOid = currentApp.value;
     let path = prompt();
     if (!path) return;
-    if(!path.startsWith("/")) {
+    if (!path.startsWith("/")) {
       alert("invalid file path!");
       return;
     }

@@ -30,7 +30,15 @@ async function build(appOid) {
       virtualFiles[file.path] = file.text;
     }
 
-    let pat = /@@@webenv:script\((.*)\)/;
+    let embedPattern = /@@@webenv.embed\((.+)\)/;
+    if (!file.binary) {
+      let match = file.text.match(embedPattern);
+      if (match) {
+        mustacheScripts[match[1]] = file.text;
+      }
+    }
+
+    let pat = /@@@webenv.script\((.*)\)/;
     if (
       file.path.startsWith("/scripts/") &&
       file.path.endsWith(".js") &&
@@ -40,7 +48,7 @@ async function build(appOid) {
       mustacheScripts[match[1]] = file.text;
     }
 
-    let impat = /@@@importmap\((.*)\)/;
+    let impat = /@@@webenv.importmap\((.*)\)/;
     if (file.path.endsWith(".js") && file.text.match(impat)) {
       let match = file.text.match(impat);
       importMapping[match[1]] = file.path;

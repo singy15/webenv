@@ -18,6 +18,8 @@ async function build(appOid) {
   let files = [];
   let virtualFiles = {};
   let virtualFilesType = {}; // text or binary
+  let buildScripts = [];
+  let buildStyles = [];
   for (let i = 0; i < app.files.length; i++) {
     let file = await get(`webenv/files/${app.files[i]}`);
     files.push(file);
@@ -38,14 +40,16 @@ async function build(appOid) {
       }
     }
 
-    let pat = /@@@webenv.script\((.*)\)/;
-    if (
-      file.path.startsWith("/scripts/") &&
-      file.path.endsWith(".js") &&
-      file.text.match(pat)
-    ) {
-      let match = file.text.match(pat);
-      mustacheScripts[match[1]] = file.text;
+    let patScript = /@@@webenv.script\((.*)\)/;
+    if (file.path.endsWith(".js") && file.text.match(patScript)) {
+      let match = file.text.match(patScript);
+      buildScripts.push({ key: match[1], path: file.path });
+    }
+
+    let patStyle = /@@@webenv.style\((.*)\)/;
+    if (file.path.endsWith(".css") && file.text.match(patStyle)) {
+      let match = file.text.match(patStyle);
+      buildStyles.push({ key: match[1], path: file.path });
     }
 
     let impat = /@@@webenv.importmap\((.*)\)/;
@@ -197,7 +201,8 @@ async function build(appOid) {
     bundlerInitialized = true;
   }
 
-  const htmlTemplate = virtualFiles["/index.html"];
+  let startupFilePath = await get(`webenv/startup`);
+  const htmlTemplate = virtualFiles[startupFilePath];
 
   if (!htmlTemplate) {
     throw new Error("index.html not exists!");
@@ -207,46 +212,61 @@ async function build(appOid) {
     throw new Error("main.js not exists!");
   }
 
-  const js = (
-    await esbuild.build({
-      entryPoints: ["/main.js"],
-      bundle: true,
-      write: false,
-      minify: false,
-      minifyIdentifiers: false,
-      minifyWhitespace: true,
-      minifySyntax: true,
-      plugins: [virtualPlugin],
-      loader: {
-        ".png": "dataurl",
-        // ".gif": "dataurl",
-        // ".jpeg": "dataurl",
-        // ".bmp": "dataurl",
-      },
-    })
-  ).outputFiles[0].text;
+  for (let i = 0; i < buildScripts.length; i++) {
+    let e = buildScripts[i];
+    let js = (
+      await esbuild.build({
+        entryPoints: [e.path],
+        bundle: true,
+        write: false,
+        minify: false,
+        minifyIdentifiers: false,
+        minifyWhitespace: true,
+        minifySyntax: true,
+        plugins: [virtualPlugin],
+        loader: {
+          ".png": "dataurl",
+        },
+      })
+    ).outputFiles[0].text;
+    mustacheScripts[e.key] = js;
+  }
 
-  //console.log(js);
+  // const js = (
+  //   await esbuild.build({
+  //     entryPoints: ["/main.js"],
+  //     bundle: true,
+  //     write: false,
+  //     minify: false,
+  //     minifyIdentifiers: false,
+  //     minifyWhitespace: true,
+  //     minifySyntax: true,
+  //     plugins: [virtualPlugin],
+  //     loader: {
+  //       ".png": "dataurl",
+  //     },
+  //   })
+  // ).outputFiles[0].text;
 
-  const transformOptions = {
-    minify: true,
-  };
-
-  //const scriptTransformResult = await esbuild.transform(scriptInput, {
-  //  ...transformOptions,
-  //  loader: "js",
-  //});
-  //const script = scriptTransformResult.code;
-
-  const stylingTransformResult = await esbuild.transform(
-    virtualFiles["/style.css"] ?? "",
-    {
-      ...transformOptions,
+  for (let i = 0; i < buildStyles.length; i++) {
+    let e = buildStyles[i];
+    let css = await esbuild.transform(virtualFiles[e.path], {
+      minify: true,
       loader: "css",
-    },
-  );
-  const style = stylingTransformResult.code;
+    });
+    mustacheScripts[e.key] = css.code;
+  }
 
+  // const stylingTransformResult = await esbuild.transform(
+  //   virtualFiles["/style.css"] ?? "",
+  //   {
+  //     minify: true,
+  //     loader: "css",
+  //   },
+  // );
+  // const style = stylingTransformResult.code;
+
+  // reload script
   // const reloadScript = `
   // (() => {
   //   let ver = localStorage.getItem("webenv/debug/version");
@@ -261,8 +281,8 @@ async function build(appOid) {
   const reloadScript = "";
 
   const model = {
-    script: js + " " + reloadScript,
-    style: style,
+    // script: js + " " + reloadScript,
+    // style: style,
     //reloadScript: reloadScript,
   };
 

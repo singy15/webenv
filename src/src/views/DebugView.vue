@@ -88,7 +88,7 @@ document.querySelector("title").innerText = "debug";
 .msg {
   z-index:9999;
   position:fixed;
-  top:1em;
+  bottom:1em;
   left:1em;
   font-size: 0.7em;
 }

@@ -196,6 +196,10 @@ async function onCreateNewFile() {
     let appOid = currentApp.value;
     let path = prompt();
     if (!path) return;
+    if(!path.startsWith("/")) {
+      alert("invalid file path!");
+      return;
+    }
     let newFile = await createFile(path);
     await addFile(appOid, newFile);
   }
@@ -1023,6 +1027,8 @@ async function exportFiles() {
     let app = await getAppByOid(currentApp.value);
 
     setGlobalMessage(`Building...`);
+    let file = await getFile(selectedItem.value.handle);
+    await set(`webenv/startup`, file.path);
     await buildForDebug(app.oid);
     let bundled = await get(`webenv/debug/index`);
 
@@ -1245,6 +1251,8 @@ async function runDebug() {
   window.open(objurl, "_blank");
   */
 
+  let file = await getFile(selectedItem.value.handle);
+  await set(`webenv/startup`, file.path);
   window.open(location.href + "debug", "_blank");
 }
 

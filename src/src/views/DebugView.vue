@@ -30,7 +30,7 @@ function htmlToBase64DataURI_UTF8(html) {
 
 async function createLoadingScreen() {
   let src = `<DOCTYPE html>
-<body>
+<body style="background-color:#555">
 Loading...
 </body>
 </html>`;

@@ -730,7 +730,10 @@ function setSaveTimeout(tabitem, force = false) {
     }
 
     // build
-    await buildForDebug(currentApp.value);
+    // await buildForDebug(currentApp.value);
+
+    // update timestamp
+    await updateTimestamp();
   }, 2000);
 }
 
@@ -1010,12 +1013,15 @@ async function modifyApplication(app) {
   await getSessionList();
 }
 
+async function updateTimestamp() {
+  let ver = moment().format(`YYYYMMDDHHmmss`);
+  localStorage.setItem(`webenv/debug/version`, ver);
+}
+
 async function buildForDebug(appOid) {
   let bundled = await bundler.build(appOid);
   await set(`webenv/debug/index`, bundled);
-  let ver = moment().format(`YYYYMMDDHHmmss`);
-  localStorage.setItem(`webenv/debug/version`, ver);
-  console.log("build", ver);
+  await updateTimestamp();
 }
 
 function htmlToBase64DataURI_UTF8(html) {

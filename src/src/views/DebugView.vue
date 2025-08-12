@@ -28,7 +28,19 @@ function htmlToBase64DataURI_UTF8(html) {
   return `data:text/html;base64,${base64}`;
 }
 
+async function createLoadingScreen() {
+  let src = `<DOCTYPE html>
+<body>
+Loading...
+</body>
+</html>`;
+  const blob = new Blob([src], { type: "text/html" });
+  const objurl = URL.createObjectURL(blob);
+  return objurl;
+}
+
 async function loadIframe() {
+  iframe.value.src = await createLoadingScreen();
   await buildForDebug(localStorage.getItem(`webenv/curappid`));
   let src = await get(`webenv/debug/index`);
   const blob = new Blob([src], { type: "text/html" });
@@ -59,7 +71,7 @@ onMounted(() => {
 });
 
 let icons = document.querySelector('link[rel="icon"]');
-if(icons) {
+if (icons) {
   icons.remove();
 }
 let lnk = document.createElement("LINK");

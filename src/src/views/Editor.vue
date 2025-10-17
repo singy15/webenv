@@ -193,11 +193,7 @@ function deleteTabByHandle(handle) {
 }
 
 async function onCreateNewFile() {
-  //console.log("item", selectedItem.value);
-
   if (!selectedItem.value) return;
-
-  console.log(selectedItem.value);
 
   if (selectedItem.value.file) {
     let file = await getFile(selectedItem.value.handle);
@@ -210,6 +206,10 @@ async function onCreateNewFile() {
       deleteTabByHandle(file.oid);
     } else {
       // rename
+      if(!path.startsWith("/")) {
+        alert("Error: Path must starts with '/'");
+        return;
+      }
       file.path = path;
       await setFile(file);
       deleteTabByHandle(file.oid);
@@ -530,7 +530,7 @@ async function openDirectory() {
     });
   });
 
-  console.log(root);
+  //console.log(root);
 
   // sort by pathname
   unsorted.sort((a, b) => {
@@ -551,7 +551,7 @@ async function openDirectory() {
 }
 
 async function expandTree(item) {
-  console.log("expand", item);
+  //console.log("expand", item);
   let idx = treelist.value.indexOf(item);
   let subtree = [];
   let subtreeDirs = [];
@@ -1343,12 +1343,18 @@ async function uploadFile() {
       });
     }
 
+
+    let basePath = "/";
+    if(selectedItem.value && !selectedItem.value.file && selectedItem.value.absPath !== "") {
+      basePath = selectedItem.value.absPath + "/";
+    }
+
     for (let i = 0; i < files.length; i++) {
       let file = files[i];
 
       const extension = file.name.split(".").pop().toLowerCase();
 
-      let newpath = "/" + file.name;
+      let newpath = basePath + file.name;
 
       let fileAlreadyExists = false;
       let exists = existingFiles.filter((e) => e.path === newpath);

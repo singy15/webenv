@@ -59,8 +59,6 @@ async function build(appOid) {
     }
   }
 
-  //console.log("virtual", virtualFiles, virtualFilesType);
-
   const virtualPlugin = {
     name: "virtual-plugin",
     setup(build) {
@@ -74,15 +72,20 @@ async function build(appOid) {
       });
 
       build.onResolve({ filter: /^[\.]+\/.*/ }, (args) => {
-        //console.log("resolve1", args);
+        let path = args.path;
+        let optionMatch = path.match(/\?(.+)$/);
+        let loaderOption = null;
+        if (optionMatch) {
+          path = path.substring(0, path.length - optionMatch[0].length);
+          loaderOption = optionMatch[1];
+        }
 
         let i = args.importer
           .split("/")
           .slice(0, args.importer.split("/").length - 1);
-        let s = args.path.split("/");
+        let s = path.split("/");
         let p = [];
         s.forEach((e) => {
-          //console.log("part", e);
           if (e === ".") {
             p = p.concat(i);
           } else if (e === "..") {
@@ -98,24 +101,29 @@ async function build(appOid) {
         });
         let absPath = p.join("/");
 
-        //console.log("resolved", absPath);
-
         return {
-          //path,
           path: absPath,
           namespace: "virtual",
+          pluginData: { loader: loaderOption },
         };
       });
 
       build.onResolve({ filter: /^\/.*/ }, (args) => {
-        //console.log("resolve2", args);
+        let path = args.path;
+        let optionMatch = path.match(/\?(.+)$/);
+        let loaderOption = null;
+        if (optionMatch) {
+          path = path.substring(0, path.length - optionMatch[0].length);
+          loaderOption = optionMatch[1];
+        }
 
-        const path = new URL(args.path, "file://" + args.resolveDir + "/")
+        const absPath = new URL(args.path, "file://" + args.resolveDir + "/")
           .pathname;
-        //console.log(path);
+
         return {
-          path,
+          path: absPath,
           namespace: "virtual",
+          pluginData: { loader: loaderOption },
         };
       });
 
@@ -144,6 +152,12 @@ async function build(appOid) {
           return {
             contents,
             loader: "dataurl",
+            resolveDir: ".",
+          };
+        } else if (args.pluginData?.loader) {
+          return {
+            contents,
+            loader: args.pluginData.loader,
             resolveDir: ".",
           };
         } else {

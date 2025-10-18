@@ -206,7 +206,7 @@ async function onCreateNewFile() {
       deleteTabByHandle(file.oid);
     } else {
       // rename
-      if(!path.startsWith("/")) {
+      if (!path.startsWith("/")) {
         alert("Error: Path must starts with '/'");
         return;
       }
@@ -1343,9 +1343,12 @@ async function uploadFile() {
       });
     }
 
-
     let basePath = "/";
-    if(selectedItem.value && !selectedItem.value.file && selectedItem.value.absPath !== "") {
+    if (
+      selectedItem.value &&
+      !selectedItem.value.file &&
+      selectedItem.value.absPath !== ""
+    ) {
       basePath = selectedItem.value.absPath + "/";
     }
 
@@ -1467,6 +1470,18 @@ function getModeFromUrl() {
 
 function openAbout() {
   window.open(window.location.href + "about", "_blank");
+}
+
+const minify = ref(storageUtil.getStorage("minify", true));
+
+function changeMinify() {
+  storageUtil.setStorage("minify", minify.value);
+}
+
+const classicReload = ref(storageUtil.getStorage("classicReload", false));
+
+function changeClassicReload() {
+  storageUtil.setStorage("classicReload", classicReload.value);
 }
 </script>
 
@@ -1759,6 +1774,20 @@ function openAbout() {
           :value="fontSize"
           @change="changeFontSize($event.target.value)"
         />
+      </label>
+      <br />
+      <label>
+        <input type="checkbox" v-model="minify" @change="changeMinify" />
+        Use Minify
+      </label>
+      <br />
+      <label>
+        <input
+          type="checkbox"
+          v-model="classicReload"
+          @change="changeClassicReload"
+        />
+        Use Classic-Reload
       </label>
       <br />
       <span class="clickable button1" @click="closeConfig">Close</span>

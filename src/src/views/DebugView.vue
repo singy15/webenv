@@ -3,6 +3,7 @@ import moment from "moment";
 import { get, set, clear, del } from "idb-keyval";
 import bundler from "../bundler.js";
 import { ref, onMounted } from "vue";
+import storageUtil from "../storage-util.js";
 
 import iconDebug from "../icon-debug.png?url";
 
@@ -40,12 +41,36 @@ Loading...
 }
 
 async function loadIframe() {
-  iframe.value.src = await createLoadingScreen();
+  let classicReload = storageUtil.getStorage("classicReload", false);
+
+  console.log("building...");
+  if (classicReload) {
+    console.log("using classic-reload");
+  }
+
   await buildForDebug(localStorage.getItem(`webenv/curappid`));
   let src = await get(`webenv/debug/index`);
-  const blob = new Blob([src], { type: "text/html" });
-  const objurl = URL.createObjectURL(blob);
-  iframe.value.src = objurl;
+
+  console.log("loading...");
+  if (classicReload) {
+    iframe.value.src = await createLoadingScreen();
+    const blob = new Blob([src], { type: "text/html" });
+    const objurl = URL.createObjectURL(blob);
+    iframe.value.src = objurl;
+  } else {
+    document.open();
+    document.write(src);
+    document.close();
+  }
+  console.clear();
+  console.log("loaded.");
+
+  // console.log(src);
+  // let parser = new DOMParser();
+  // let dom = parser.parseFromString(src, "text/html");
+  // console.log(dom.querySelector("html"));
+  // console.log(document.querySelector("html"));
+  // document.querySelector("html").innerHTML = dom.querySelector("html").innerHTML;
 }
 
 function setVerCheckInterval(interval) {

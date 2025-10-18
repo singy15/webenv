@@ -2,6 +2,7 @@ import * as esbuild from "./lib/esbuild-wasm.browser.min.js";
 import { get, set } from "idb-keyval";
 import mustache from "mustache";
 import wasmUrl from "./esbuild.wasm?url";
+import storageUtil from "./storage-util.js";
 
 let bundlerInitialized = false;
 
@@ -226,17 +227,25 @@ async function build(appOid) {
     throw new Error("main.js not exists!");
   }
 
+  let minify = storageUtil.getStorage("minify", true);
+
   for (let i = 0; i < buildScripts.length; i++) {
     let e = buildScripts[i];
+
+    console.log(`building [${e.path}]`);
+
     let js = (
       await esbuild.build({
         entryPoints: [e.path],
         bundle: true,
         write: false,
-        minify: false,
+        minify: minify,
         minifyIdentifiers: false,
         minifyWhitespace: true,
         minifySyntax: true,
+        keepNames: true,
+        treeShaking: true,
+        //sourcemap: "inline",
         plugins: [virtualPlugin],
         loader: {
           ".png": "dataurl",

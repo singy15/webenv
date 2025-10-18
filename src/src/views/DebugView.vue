@@ -43,17 +43,26 @@ Loading...
 async function loadIframe() {
   let classicReload = storageUtil.getStorage("classicReload", false);
 
+
+
   console.log("building...");
+  // if (fullPageReload) {
+  //   console.log("using full-page-reload");
+  // } else
   if (classicReload) {
     console.log("using classic-reload");
+    iframe.value.src = await createLoadingScreen();
   }
 
   await buildForDebug(localStorage.getItem(`webenv/curappid`));
   let src = await get(`webenv/debug/index`);
 
   console.log("loading...");
+  // if(fullPageReload) {
+  //   console.clear();
+  //   location.reload();
+  // } else
   if (classicReload) {
-    iframe.value.src = await createLoadingScreen();
     const blob = new Blob([src], { type: "text/html" });
     const objurl = URL.createObjectURL(blob);
     iframe.value.src = objurl;
@@ -73,13 +82,26 @@ async function loadIframe() {
   // document.querySelector("html").innerHTML = dom.querySelector("html").innerHTML;
 }
 
+let lastVer = "";
 function setVerCheckInterval(interval) {
-  let lastVer = "";
   setInterval(() => {
     let nowVer = localStorage.getItem(`webenv/debug/version`);
     if (lastVer === nowVer) return;
     lastVer = nowVer;
     showMsg(`RELOAD ver.${nowVer}`);
+
+    let fullPageReload = storageUtil.getStorage("fullPageReload", false);
+    if (fullPageReload) {
+      location.reload();
+      return;
+    }
+
+    // if (storageUtil.getStorage("reload", false)) {
+    //   storageUtil.setStorage("reload", false);
+    //   location.reload();
+    //   return;
+    // }
+
     loadIframe();
   }, interval);
 }
@@ -92,6 +114,8 @@ function showMsg(str) {
 }
 
 onMounted(() => {
+  loadIframe();
+  lastVer = localStorage.getItem(`webenv/debug/version`);
   setVerCheckInterval(1000);
 });
 

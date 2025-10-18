@@ -1282,6 +1282,7 @@ async function runDebug() {
 
   let file = await getFile(selectedItem.value.handle);
   await set(`webenv/startup`, file.path);
+  storageUtil.setStorage("reload", false);
   window.open(location.href + "debug", "_blank");
 }
 
@@ -1482,6 +1483,12 @@ const classicReload = ref(storageUtil.getStorage("classicReload", false));
 
 function changeClassicReload() {
   storageUtil.setStorage("classicReload", classicReload.value);
+}
+
+const fullPageReload = ref(storageUtil.getStorage("fullPageReload", false));
+
+function changeFullPageReload() {
+  storageUtil.setStorage("fullPageReload", fullPageReload.value);
 }
 </script>
 
@@ -1788,6 +1795,15 @@ function changeClassicReload() {
           @change="changeClassicReload"
         />
         Use Classic-Reload
+      </label>
+      <br />
+      <label>
+        <input
+          type="checkbox"
+          v-model="fullPageReload"
+          @change="changeFullPageReload"
+        />
+        Use Full-Page Reload
       </label>
       <br />
       <span class="clickable button1" @click="closeConfig">Close</span>

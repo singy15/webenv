@@ -43,8 +43,6 @@ Loading...
 async function loadIframe() {
   let classicReload = storageUtil.getStorage("classicReload", false);
 
-
-
   console.log("building...");
   // if (fullPageReload) {
   //   console.log("using full-page-reload");
@@ -80,15 +78,25 @@ async function loadIframe() {
   // console.log(dom.querySelector("html"));
   // console.log(document.querySelector("html"));
   // document.querySelector("html").innerHTML = dom.querySelector("html").innerHTML;
+
+  reloading = false;
 }
 
 let lastVer = "";
+let reloading = false;
 function setVerCheckInterval(interval) {
   setInterval(() => {
+    if(reloading) {
+      // console.log("waiting for reload...");
+      return;
+    }
+
     let nowVer = localStorage.getItem(`webenv/debug/version`);
     if (lastVer === nowVer) return;
     lastVer = nowVer;
     showMsg(`RELOAD ver.${nowVer}`);
+
+    reloading = true;
 
     let fullPageReload = storageUtil.getStorage("fullPageReload", false);
     if (fullPageReload) {

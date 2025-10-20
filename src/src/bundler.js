@@ -149,16 +149,16 @@ async function build(appOid) {
         const isBinary = virtualFilesType[args.path];
         if (!contents) throw new Error(`File not found: ${args.path}`);
 
-        if (isBinary === "binary") {
-          return {
-            contents,
-            loader: "dataurl",
-            resolveDir: ".",
-          };
-        } else if (args.pluginData?.loader) {
+        if (args.pluginData?.loader) {
           return {
             contents,
             loader: args.pluginData.loader,
+            resolveDir: ".",
+          };
+        } else if (isBinary === "binary") {
+          return {
+            contents,
+            loader: "dataurl",
             resolveDir: ".",
           };
         } else {

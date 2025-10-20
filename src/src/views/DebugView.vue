@@ -52,8 +52,22 @@ async function loadIframe() {
     iframe.value.src = await createLoadingScreen();
   }
 
-  await buildForDebug(localStorage.getItem(`webenv/curappid`));
-  let src = await get(`webenv/debug/index`);
+  // await buildForDebug(localStorage.getItem(`webenv/curappid`));
+  // let src = await get(`webenv/debug/index`);
+  let appOid = localStorage.getItem(`webenv/curappid`);
+  let src;
+  let startTime = Date.now();
+  try {
+    src = await bundler.build(appOid);
+  } catch (err) {
+    console.error("build failed, abort loading.");
+    console.error(err);
+    reloading = false;
+    return;
+  }
+  let endTime = Date.now();
+  // console.log(startTime, endTime);
+  // storageUtil.setStorage("buildTime", endTime - startTime);
 
   console.log("loading...");
   // if(fullPageReload) {
@@ -70,7 +84,10 @@ async function loadIframe() {
     document.close();
   }
   console.clear();
-  console.log("loaded.");
+  // let sec = (storageUtil.getStorage("buildTime", 0)) / 1000;
+  let sec = Math.floor((endTime - startTime) / 1000);
+  let min = Math.floor(sec / 60);
+  console.log(`loaded. [build: ${min} min ${sec - min * 60} sec]`);
 
   // console.log(src);
   // let parser = new DOMParser();
@@ -86,7 +103,7 @@ let lastVer = "";
 let reloading = false;
 function setVerCheckInterval(interval) {
   setInterval(() => {
-    if(reloading) {
+    if (reloading) {
       // console.log("waiting for reload...");
       return;
     }
@@ -110,7 +127,13 @@ function setVerCheckInterval(interval) {
     //   return;
     // }
 
+    // try {
     loadIframe();
+    // } catch (err) {
+    //   console.error(err);
+    // } finally {
+    //   reloading = false;
+    // }
   }, interval);
 }
 

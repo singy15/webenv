@@ -1,26 +1,61 @@
-import * as esbuild from "./lib/esbuild-wasm.browser.min.js";
+import * as esbuild from "esbuild-wasm";
 import { get, set } from "idb-keyval";
 import mustache from "mustache";
 import wasmUrl from "./esbuild.wasm?url";
 import storageUtil from "./storage-util.js";
 
 let bundlerInitialized = false;
+let esbuildContexts = {};
 
 async function fileToUint8Array(file) {
   const arrayBuffer = await file.arrayBuffer();
   return new Uint8Array(arrayBuffer);
 }
 
+let importMapping = {};
+let mustacheScripts = {};
+let files = [];
+let virtualFiles = {};
+let virtualFilesType = {}; // text or binary
+let buildScripts = [];
+let buildStyles = [];
+
 async function build(appOid) {
   let app = await get(`webenv/apps/${appOid}`);
 
-  let importMapping = {};
-  let mustacheScripts = {};
-  let files = [];
-  let virtualFiles = {};
-  let virtualFilesType = {}; // text or binary
-  let buildScripts = [];
-  let buildStyles = [];
+  // let resolve = async (path, appOid) => {
+  //   let app = await get(`webenv/apps/${appOid}`);
+  //   let content = null;
+  //   for (let i = 0; i < app.files.length; i++) {
+  //     let file = await get(`webenv/files/${app.files[i]}`);
+  //     if(file.path !== path) continue;
+
+  //     if (file.binary) {
+  //       let bin = await get(`webenv/bins/${file.oid}`);
+  //       content = await fileToUint8Array(bin);
+  //     } else {
+  //       content = file.text;
+  //     }
+  //     break;
+  //   }
+  //   return content;
+  // };
+
+  // let importMapping = {};
+  // let mustacheScripts = {};
+  // let files = [];
+  // let virtualFiles = {};
+  // let virtualFilesType = {}; // text or binary
+  // let buildScripts = [];
+  // let buildStyles = [];
+  Object.keys(importMapping).forEach((key) => delete importMapping[key]);
+  Object.keys(mustacheScripts).forEach((key) => delete mustacheScripts[key]);
+  files.splice(0, files.length);
+  Object.keys(virtualFiles).forEach((key) => delete virtualFiles[key]);
+  Object.keys(virtualFilesType).forEach((key) => delete virtualFilesType[key]);
+  buildScripts.splice(0, buildScripts.length);
+  buildStyles.splice(0, buildStyles.length);
+
   for (let i = 0; i < app.files.length; i++) {
     let file = await get(`webenv/files/${app.files[i]}`);
     files.push(file);
@@ -144,8 +179,9 @@ async function build(appOid) {
         };
       });
 
-      build.onLoad({ filter: /^\/.*/, namespace: "virtual" }, (args) => {
+      build.onLoad({ filter: /^\/.*/, namespace: "virtual" }, async (args) => {
         const contents = virtualFiles[args.path];
+
         const isBinary = virtualFilesType[args.path];
         if (!contents) throw new Error(`File not found: ${args.path}`);
 
@@ -232,10 +268,12 @@ async function build(appOid) {
   for (let i = 0; i < buildScripts.length; i++) {
     let e = buildScripts[i];
 
-    console.log(`building [${e.path}]`);
-
-    let js = (
-      await esbuild.build({
+    let context = null;
+    if (esbuildContexts[e.path]) {
+      context = esbuildContexts[e.path];
+    } else {
+      context = await esbuild.context({
+        format: "esm",
         entryPoints: [e.path],
         bundle: true,
         write: false,
@@ -250,8 +288,13 @@ async function build(appOid) {
         loader: {
           ".png": "dataurl",
         },
-      })
-    ).outputFiles[0].text;
+      });
+      esbuildContexts[e.path] = context;
+    }
+
+    console.log(`building [${e.path}]`);
+
+    let js = (await context.rebuild()).outputFiles[0].text;
     mustacheScripts[e.key] = js;
   }
 

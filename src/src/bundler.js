@@ -259,9 +259,59 @@ async function build(appOid) {
     throw new Error("index.html not exists!");
   }
 
-  if (!virtualFiles["/main.js"]) {
-    throw new Error("main.js not exists!");
-  }
+  // parse template
+  let parser = new DOMParser();
+  let doc = parser.parseFromString(htmlTemplate, "text/html");
+
+  const pseudeBaseUrlForParsing = `https://localhost`;
+
+  // get required js bundle from parsed template
+  buildScripts.splice(0, buildScripts.length);
+  let scriptKeyIdSeq = 0;
+  let scripts = doc.querySelectorAll("script[inline]");
+  scripts.forEach((script) => {
+    // console.log(script, script.getAttribute("inline"));
+    const url = new URL(
+      pseudeBaseUrlForParsing + script.getAttribute("inline"),
+    );
+    const params = url.searchParams;
+    // if (params.has("inline")) {
+    scriptKeyIdSeq++;
+    let mustacheVar = `__script${scriptKeyIdSeq}`;
+    buildScripts.push({
+      key: url.pathname,
+      path: url.pathname,
+      mustacheVar: mustacheVar,
+    });
+    script.removeAttribute("inline");
+    script.textContent = `{{{ ${mustacheVar} }}}`;
+    // }
+  });
+
+  // get required css bundle from parsed template
+  buildStyles.splice(0, buildStyles.length);
+  let styleKeyIdSeq = 0;
+  let cssStyles = doc.querySelectorAll(`style[inline]`);
+  cssStyles.forEach((cssStyle) => {
+    // console.log(cssStyle, cssStyle.getAttribute("inline"));
+    const url = new URL(pseudeBaseUrlForParsing + cssStyle.getAttribute("inline"));
+    const params = url.searchParams;
+    // if (params.has("inline")) {
+    styleKeyIdSeq++;
+    let mustacheVar = `__style${styleKeyIdSeq}`;
+    buildStyles.push({
+      key: url.pathname,
+      path: url.pathname,
+      mustacheVar: mustacheVar,
+    });
+    cssStyle.removeAttribute("inline");
+    cssStyle.textContent = `{{{ ${mustacheVar} }}}`;
+    // }
+  });
+
+  // if (!virtualFiles["/main.js"]) {
+  //   throw new Error("main.js not exists!");
+  // }
 
   let minify = storageUtil.getStorage("minify", true);
 
@@ -295,68 +345,38 @@ async function build(appOid) {
     console.log(`building [${e.path}]`);
 
     let js = (await context.rebuild()).outputFiles[0].text;
-    mustacheScripts[e.key] = js;
+    mustacheScripts[e.mustacheVar] = js;
   }
-
-  // const js = (
-  //   await esbuild.build({
-  //     entryPoints: ["/main.js"],
-  //     bundle: true,
-  //     write: false,
-  //     minify: false,
-  //     minifyIdentifiers: false,
-  //     minifyWhitespace: true,
-  //     minifySyntax: true,
-  //     plugins: [virtualPlugin],
-  //     loader: {
-  //       ".png": "dataurl",
-  //     },
-  //   })
-  // ).outputFiles[0].text;
 
   for (let i = 0; i < buildStyles.length; i++) {
     let e = buildStyles[i];
-    let css = await esbuild.transform(virtualFiles[e.path], {
-      minify: true,
-      loader: "css",
-    });
-    mustacheScripts[e.key] = css.code;
+    /*
+    function cssToDataURL(str) {
+      const uint8 = new TextEncoder().encode(str);
+      let binary = "";
+      const chunkSize = 0x8000;
+      for (let i = 0; i < uint8.length; i += chunkSize) {
+        const chunk = uint8.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+      }
+      return "data:text/css;base64," + btoa(binary);
+    }
+
+    const dataUrl = cssToDataURL(virtualFiles[e.path]);
+    */
+    mustacheScripts[e.mustacheVar] = virtualFiles[e.path];
   }
 
-  // const stylingTransformResult = await esbuild.transform(
-  //   virtualFiles["/style.css"] ?? "",
-  //   {
-  //     minify: true,
-  //     loader: "css",
-  //   },
-  // );
-  // const style = stylingTransformResult.code;
-
-  // reload script
-  // const reloadScript = `
-  // (() => {
-  //   let ver = localStorage.getItem("webenv/debug/version");
-  //   setInterval(() => {
-  //     let now = localStorage.getItem("webenv/debug/version");
-  //     if(now > ver) {
-  //       ver = now;
-  //       location.reload();
-  //     }
-  //   }, 1000);
-  // })()`;
-  const reloadScript = "";
-
-  const model = {
-    // script: js + " " + reloadScript,
-    // style: style,
-    //reloadScript: reloadScript,
-  };
-
+  // construct model
+  const model = {};
   Object.keys(mustacheScripts).forEach((k) => {
     model[k] = mustacheScripts[k];
   });
 
-  const htmlView = mustache.render(htmlTemplate, model);
+  // rendering
+  const serializer = new XMLSerializer();
+  const htmlOut = serializer.serializeToString(doc);
+  const htmlView = mustache.render(htmlOut, model);
 
   return htmlView;
 }

@@ -1490,6 +1490,12 @@ const fullPageReload = ref(storageUtil.getStorage("fullPageReload", false));
 function changeFullPageReload() {
   storageUtil.setStorage("fullPageReload", fullPageReload.value);
 }
+
+const clearConsoleOnLoad = ref(storageUtil.getStorage("clearConsoleOnLoad", true));
+
+function changeClearConsoleOnLoad() {
+  storageUtil.setStorage("clearConsoleOnLoad", clearConsoleOnLoad.value);
+}
 </script>
 
 <template>
@@ -1804,6 +1810,15 @@ function changeFullPageReload() {
           @change="changeFullPageReload"
         />
         Use Full-Page Reload
+      </label>
+      <br />
+      <label>
+        <input
+          type="checkbox"
+          v-model="clearConsoleOnLoad"
+          @change="changeClearConsoleOnLoad"
+        />
+        Clear Console on Load
       </label>
       <br />
       <span class="clickable button1" @click="closeConfig">Close</span>

@@ -83,7 +83,11 @@ async function loadIframe() {
     document.write(src);
     document.close();
   }
-  console.clear();
+
+  if (storageUtil.getStorage("clearConsoleOnLoad", true)) {
+    console.clear();
+  }
+
   // let sec = (storageUtil.getStorage("buildTime", 0)) / 1000;
   let sec = Math.floor((endTime - startTime) / 1000);
   let min = Math.floor(sec / 60);

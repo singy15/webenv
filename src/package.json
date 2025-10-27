@@ -14,6 +14,7 @@
     "@jspm/generator": "^2.6.0",
     "esbuild-wasm": "^0.25.11",
     "idb-keyval": "^6.2.2",
+    "js-md5": "^0.8.3",
     "moment": "^2.30.1",
     "monaco-editor": "^0.52.2",
     "mustache": "^4.2.0",

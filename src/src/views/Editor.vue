@@ -16,6 +16,7 @@ import { get, set, clear, del } from "idb-keyval";
 import bundler from "../bundler.js";
 import { initialize, build } from "../lib/esbuild-wasm.browser.min.js";
 import moment from "moment";
+import appApi from "../app.js";
 
 const fontSize = ref(storageUtil.getStorage("fontSize", 13));
 
@@ -34,26 +35,26 @@ async function initializeIdb() {
   await set(`webenv/catalogue`, []);
 
   // create app
-  let example1 = await createApp("example1");
-  await addApp(example1);
-  await setApp(example1);
+  let example1 = await appApi.createApp("example1");
+  await appApi.addApp(example1);
+  await appApi.setApp(example1);
 
   // main script
-  let main = await createFile("/main.js");
+  let main = await appApi.createFile("/main.js");
   main.text = `// @@@webenv.script(main)
 
 console.log("it works!");`;
-  await addFile(example1.oid, main);
+  await appApi.addFile(example1.oid, main);
 
   // style
-  let style = await createFile("/style.css");
+  let style = await appApi.createFile("/style.css");
   style.text = `/* @@@webenv.style(style) */
 
 .example1 { color: blue }`;
-  await addFile(example1.oid, style);
+  await appApi.addFile(example1.oid, style);
 
   // index
-  let index = await createFile("/index.html");
+  let index = await appApi.createFile("/index.html");
   index.text = `<!DOCTYPE html>
 <html>
 <head>
@@ -69,7 +70,7 @@ console.log("it works!");`;
 </body>
 </html>
 `;
-  await addFile(example1.oid, index);
+  await appApi.addFile(example1.oid, index);
 
   // let apps = await get("webenv/apps");
   // console.log(apps);
@@ -91,33 +92,28 @@ console.log("it works!");`;
   // }
 }
 
-async function resetIdb() {
-  await clear();
-  await initializeIdb();
-}
-
 async function onCreateNewApp() {
   let name = prompt();
   if (!name) return;
-  let newApp = await createApp(name);
-  await addApp(newApp);
+  let newApp = await appApi.createApp(name);
+  await appApi.addApp(newApp);
 
   // main script
-  let main = await createFile("/main.js");
+  let main = await appApi.createFile("/main.js");
   main.text = `// @@@webenv.script(main)
 
 console.log("it works!");`;
-  await addFile(newApp.oid, main);
+  await appApi.addFile(newApp.oid, main);
 
   // style
-  let style = await createFile("/style.css");
+  let style = await appApi.createFile("/style.css");
   style.text = `/* @@@webenv.style(style) */
 
 .example1 { color: blue }`;
-  await addFile(newApp.oid, style);
+  await appApi.addFile(newApp.oid, style);
 
   // index
-  let index = await createFile("/index.html");
+  let index = await appApi.createFile("/index.html");
   index.text = `<!DOCTYPE html>
 <html>
 <head>
@@ -133,45 +129,9 @@ console.log("it works!");`;
 </body>
 </html>
 `;
-  await addFile(newApp.oid, index);
+  await appApi.addFile(newApp.oid, index);
 
   await getSessionList();
-}
-
-async function createApp(name) {
-  return {
-    oid: uuid4(),
-    name: name,
-    files: [],
-  };
-}
-
-async function addApp(app) {
-  await addCatalogue(app.oid);
-  await setApp(app);
-}
-
-async function addCatalogue(oid) {
-  let catalogue = await get(`webenv/catalogue`);
-  catalogue.push(oid);
-  await set(`webenv/catalogue`, catalogue);
-}
-
-async function getAppByOid(oid) {
-  return await get(`webenv/apps/${oid}`);
-}
-
-async function setApp(app) {
-  return await set(`webenv/apps/${app.oid}`, app);
-}
-
-async function createFile(path) {
-  return {
-    oid: uuid4(),
-    path: path,
-    text: path,
-    binary: false,
-  };
 }
 
 function deleteTabByHandle(handle) {
@@ -196,13 +156,13 @@ async function onCreateNewFile() {
   if (!selectedItem.value) return;
 
   if (selectedItem.value.file) {
-    let file = await getFile(selectedItem.value.handle);
+    let file = await appApi.getFile(selectedItem.value.handle);
     let path = prompt();
     if (path == null || path === undefined) return;
     if (path === "") {
       // remove
       if (!confirm(`Delete "${file.path}", will you continue?`)) return;
-      await removeFile(currentApp.value, file);
+      await appApi.removeFile(currentApp.value, file);
       deleteTabByHandle(file.oid);
     } else {
       // rename
@@ -211,7 +171,7 @@ async function onCreateNewFile() {
         return;
       }
       file.path = path;
-      await setFile(file);
+      await appApi.setFile(file);
       deleteTabByHandle(file.oid);
     }
   } else {
@@ -223,39 +183,10 @@ async function onCreateNewFile() {
       alert("invalid file path!");
       return;
     }
-    let newFile = await createFile(path);
-    await addFile(appOid, newFile);
+    let newFile = await appApi.createFile(path);
+    await appApi.addFile(appOid, newFile);
   }
   await openDirectory();
-}
-
-async function addFile(appOid, file) {
-  let app = await getAppByOid(appOid);
-  app.files.push(file.oid);
-  await setApp(app);
-  await setFile(file);
-}
-
-async function removeFile(appOid, file) {
-  let app = await getAppByOid(appOid);
-  app.files = app.files.filter((e) => e !== file.oid);
-  await setApp(app);
-  await delFile(file);
-}
-
-async function getFile(oid) {
-  return await get(`webenv/files/${oid}`);
-}
-
-async function setFile(file) {
-  return await set(`webenv/files/${file.oid}`, file);
-}
-
-async function delFile(file) {
-  if (file.binary) {
-    await del(`webenv/bins/${file.oid}`);
-  }
-  return await del(`webenv/files/${file.oid}`);
 }
 
 //resetIdb();
@@ -463,7 +394,7 @@ async function openDirectory() {
 
   let appOid = currentApp.value;
   localStorage.setItem(`webenv/curappid`, appOid);
-  let app = await getAppByOid(appOid);
+  let app = await appApi.getAppByOid(appOid);
 
   treelist.value = [];
   let workspace = {
@@ -489,7 +420,7 @@ async function openDirectory() {
   let unsorted = [];
   for (let i = 0; i < files.length; i++) {
     let fileOid = files[i];
-    let file = await getFile(fileOid);
+    let file = await appApi.getFile(fileOid);
 
     let paths = file.path.split("/");
     paths.shift();
@@ -716,9 +647,9 @@ function setSaveTimeout(tabitem, force = false) {
 
   // set save timeout
   tabitem.timeoutSave = setTimeout(async () => {
-    let file = await getFile(tabitem.oid);
+    let file = await appApi.getFile(tabitem.oid);
     file.text = tabitem.editor.getValue();
-    await setFile(file);
+    await appApi.setFile(file);
 
     // clear timeout state
     tabitem.timeoutSave = null;
@@ -984,7 +915,7 @@ async function modifyApplication(app) {
   let newName = prompt();
   if (newName == null || newName === undefined) return;
 
-  let apl = await getAppByOid(app.oid);
+  let apl = await appApi.getAppByOid(app.oid);
 
   //console.log("modifing...", apl);
 
@@ -1007,7 +938,7 @@ async function modifyApplication(app) {
     // rename app
     //console.log("rename");
     apl.name = newName;
-    await setApp(apl);
+    await appApi.setApp(apl);
   }
 
   await getSessionList();
@@ -1053,10 +984,10 @@ async function exportFiles() {
   let dhandle = await window.showDirectoryPicker({ mode: "readwrite" });
 
   try {
-    let app = await getAppByOid(currentApp.value);
+    let app = await appApi.getAppByOid(currentApp.value);
 
     setGlobalMessage(`Building...`);
-    let file = await getFile(selectedItem.value.handle);
+    let file = await appApi.getFile(selectedItem.value.handle);
     await set(`webenv/startup`, file.path);
     await buildForDebug(app.oid);
     let bundled = await get(`webenv/debug/index`);
@@ -1070,7 +1001,7 @@ async function exportFiles() {
 
     for (let i = 0; i < app.files.length; i++) {
       let foid = app.files[i];
-      let file = await getFile(foid);
+      let file = await appApi.getFile(foid);
       virtualFiles.push({
         path: "/src" + file.path,
         text: file.text,
@@ -1209,11 +1140,11 @@ async function importFiles() {
 
   //console.log(virtualFiles);
 
-  let app = await getAppByOid(currentApp.value);
+  let app = await appApi.getAppByOid(currentApp.value);
   let existingFiles = [];
   for (let i = 0; i < app.files.length; i++) {
     //console.log(i);
-    let f = await getFile(app.files[i]);
+    let f = await appApi.getFile(app.files[i]);
     existingFiles.push({
       oid: app.files[i],
       path: f.path,
@@ -1239,9 +1170,9 @@ Would you like to overwrite it?
 
     let file = null;
     if (fileAlreadyExists) {
-      file = await getFile(exists[0].oid);
+      file = await appApi.getFile(exists[0].oid);
     } else {
-      file = await createFile(f.path);
+      file = await appApi.createFile(f.path);
     }
 
     file.text = f.text;
@@ -1251,9 +1182,9 @@ Would you like to overwrite it?
     }
 
     if (fileAlreadyExists) {
-      await setFile(file);
+      await appApi.setFile(file);
     } else {
-      await addFile(currentApp.value, file);
+      await appApi.addFile(currentApp.value, file);
     }
   }
 
@@ -1280,7 +1211,7 @@ async function runDebug() {
   window.open(objurl, "_blank");
   */
 
-  let file = await getFile(selectedItem.value.handle);
+  let file = await appApi.getFile(selectedItem.value.handle);
   await set(`webenv/startup`, file.path);
   storageUtil.setStorage("reload", false);
   window.open(location.href + "debug", "_blank");
@@ -1334,10 +1265,10 @@ async function uploadFile() {
       fileHandles.map((handle) => handle.getFile()),
     );
 
-    let app = await getAppByOid(currentApp.value);
+    let app = await appApi.getAppByOid(currentApp.value);
     let existingFiles = [];
     for (let i = 0; i < app.files.length; i++) {
-      let f = await getFile(app.files[i]);
+      let f = await appApi.getFile(app.files[i]);
       existingFiles.push({
         oid: app.files[i],
         path: f.path,
@@ -1376,9 +1307,9 @@ Would you like to overwrite it?
 
       let newfile = null;
       if (fileAlreadyExists) {
-        newfile = await getFile(exists[0].oid);
+        newfile = await appApi.getFile(exists[0].oid);
       } else {
-        newfile = await createFile(newpath);
+        newfile = await appApi.createFile(newpath);
       }
 
       let isBinary = determineIfBinary(extension);
@@ -1399,9 +1330,9 @@ Would you like to overwrite it?
       }
 
       if (fileAlreadyExists) {
-        await setFile(newfile);
+        await appApi.setFile(newfile);
       } else {
-        await addFile(currentApp.value, newfile);
+        await appApi.addFile(currentApp.value, newfile);
       }
 
       await openDirectory();
@@ -1409,25 +1340,6 @@ Would you like to overwrite it?
   } catch (err) {
     console.error("failed to load file", err);
   }
-
-  //try {
-  //  const [fileHandle] = await window.showOpenFilePicker();
-  //
-  //  const file = await fileHandle.getFile();
-  //  const contents = await file.text();
-  //
-  //  let path = window.prompt("path", `/${file.name}`);
-  //
-  //  let newfile = await createFile(path);
-  //
-  //  newfile.text = contents;
-  //
-  //  console.log(newfile);
-  //
-  //  await addFile(currentApp.value, newfile);
-  //} catch (err) {
-  //  console.error("failed to load file", err);
-  //}
 }
 
 window.iset = set;
@@ -1491,7 +1403,9 @@ function changeFullPageReload() {
   storageUtil.setStorage("fullPageReload", fullPageReload.value);
 }
 
-const clearConsoleOnLoad = ref(storageUtil.getStorage("clearConsoleOnLoad", true));
+const clearConsoleOnLoad = ref(
+  storageUtil.getStorage("clearConsoleOnLoad", true),
+);
 
 function changeClearConsoleOnLoad() {
   storageUtil.setStorage("clearConsoleOnLoad", clearConsoleOnLoad.value);

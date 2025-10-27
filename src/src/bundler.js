@@ -1,11 +1,14 @@
 import * as esbuild from "esbuild-wasm";
 import { get, set } from "idb-keyval";
+import { md5 } from "js-md5";
 import mustache from "mustache";
 import wasmUrl from "./esbuild.wasm?url";
 import storageUtil from "./storage-util.js";
+import appApi from "./app.js";
 
 let bundlerInitialized = false;
 let esbuildContexts = {};
+let lastEntryPointPath = null;
 
 async function fileToUint8Array(file) {
   const arrayBuffer = await file.arrayBuffer();
@@ -209,8 +212,11 @@ async function build(appOid) {
       build.onLoad(
         { filter: /https:\/\/.*/, namespace: "virtual" },
         async (args) => {
-          let text = await (await fetch(args.path)).text();
+          let text = await (
+            await fetch(args.path, { cache: "no-store" })
+          ).text();
           const contents = text;
+          console.log("https", "md5", md5(contents));
           if (!contents) throw new Error(`File not found: ${args.path}`);
           return {
             contents,
@@ -222,8 +228,11 @@ async function build(appOid) {
       build.onLoad(
         { filter: /http:\/\/.*/, namespace: "virtual" },
         async (args) => {
-          let text = await (await fetch(args.path)).text();
+          let text = await (
+            await fetch(args.path, { cache: "no-store" })
+          ).text();
           const contents = text;
+          console.log("http", "md5", md5(contents));
           if (!contents) throw new Error(`File not found: ${args.path}`);
           return {
             contents,
@@ -253,6 +262,10 @@ async function build(appOid) {
   }
 
   let startupFilePath = await get(`webenv/startup`);
+  if (lastEntryPointPath !== startupFilePath) {
+    esbuildContexts = {};
+    lastEntryPointPath = startupFilePath;
+  }
   const htmlTemplate = virtualFiles[startupFilePath];
 
   if (!htmlTemplate) {
@@ -288,13 +301,81 @@ async function build(appOid) {
     // }
   });
 
+  // get cache script from parsed template
+  let cacheScripts = doc.querySelectorAll('script[cache="true"]');
+  for (let script of cacheScripts) {
+    const url = new URL(script.getAttribute("src"));
+    let cacheKey = `/@cache/${md5(script.getAttribute("src"))}`;
+    let contents = null;
+    if (virtualFiles[cacheKey]) {
+      contents = virtualFiles[cacheKey];
+    } else {
+      let text = await (
+        await fetch(script.getAttribute("src"), { cache: "no-store" })
+      ).text();
+      contents = text;
+      virtualFiles[cacheKey] = contents;
+      let newFile = await appApi.createFile(cacheKey);
+      newFile.text = contents;
+      await appApi.addFile(appOid, newFile);
+    }
+    scriptKeyIdSeq++;
+    let mustacheVar = `__script${scriptKeyIdSeq}`;
+    script.removeAttribute("cache");
+    script.removeAttribute("src");
+    script.textContent = `{{{ ${mustacheVar} }}}`;
+    mustacheScripts[mustacheVar] = contents;
+  }
+
+  // get cache link from parsed template
+  let cacheLinks = doc.querySelectorAll('link[cache="true"]');
+  for (let link of cacheLinks) {
+    const url = new URL(link.getAttribute("href"));
+    let cacheKey = `/@cache/${md5(link.getAttribute("href"))}`;
+    let contents = null;
+    if (virtualFiles[cacheKey]) {
+      contents = virtualFiles[cacheKey];
+    } else {
+      let text = await (
+        await fetch(link.getAttribute("href"), { cache: "no-store" })
+      ).text();
+      contents = text;
+      virtualFiles[cacheKey] = contents;
+      let newFile = await appApi.createFile(cacheKey);
+      newFile.text = contents;
+      await appApi.addFile(appOid, newFile);
+    }
+    // scriptKeyIdSeq++;
+    // let mustacheVar = `__script${scriptKeyIdSeq}`;
+    link.removeAttribute("cache");
+
+    function cssToDataURL(str) {
+      const uint8 = new TextEncoder().encode(str);
+      let binary = "";
+      const chunkSize = 0x8000;
+      for (let i = 0; i < uint8.length; i += chunkSize) {
+        const chunk = uint8.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+      }
+      return "data:text/css;base64," + btoa(binary);
+    }
+
+    link.setAttribute("href", cssToDataURL(contents));    
+
+    // link.removeAttribute("src");
+    // link.textContent = `{{{ ${mustacheVar} }}}`;
+    // mustacheScripts[mustacheVar] = contents;
+  }
+
   // get required css bundle from parsed template
   buildStyles.splice(0, buildStyles.length);
   let styleKeyIdSeq = 0;
   let cssStyles = doc.querySelectorAll(`style[inline]`);
   cssStyles.forEach((cssStyle) => {
     // console.log(cssStyle, cssStyle.getAttribute("inline"));
-    const url = new URL(pseudeBaseUrlForParsing + cssStyle.getAttribute("inline"));
+    const url = new URL(
+      pseudeBaseUrlForParsing + cssStyle.getAttribute("inline"),
+    );
     const params = url.searchParams;
     // if (params.has("inline")) {
     styleKeyIdSeq++;

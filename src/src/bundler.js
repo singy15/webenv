@@ -101,13 +101,24 @@ async function build(appOid) {
   const virtualPlugin = {
     name: "virtual-plugin",
     setup(build) {
-      Object.keys(importMapping).forEach((k) => {
-        build.onResolve({ filter: new RegExp("^" + k + "$") }, (args) => {
-          return {
-            path: importMapping[k],
-            namespace: "virtual",
-          };
-        });
+      // Object.keys(importMapping).forEach((k) => {
+      //   build.onResolve({ filter: new RegExp("^" + k + "$") }, (args) => {
+      //     return {
+      //       path: importMapping[k],
+      //       namespace: "virtual",
+      //     };
+      //   });
+      // });
+
+      build.onResolve({ filter: /.+/ }, (args) => {
+        for (let k in importMapping) {
+          if (args.path === k) {
+            return {
+              path: importMapping[k],
+              namespace: "virtual",
+            };
+          }
+        }
       });
 
       build.onResolve({ filter: /^[\.]+\/.*/ }, (args) => {
@@ -360,7 +371,7 @@ async function build(appOid) {
       return "data:text/css;base64," + btoa(binary);
     }
 
-    link.setAttribute("href", cssToDataURL(contents));    
+    link.setAttribute("href", cssToDataURL(contents));
 
     // link.removeAttribute("src");
     // link.textContent = `{{{ ${mustacheVar} }}}`;

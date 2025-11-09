@@ -364,7 +364,7 @@ const editor = reactive({
 });
 */
 
-const cssExplorerWidth = ref(`20em`);
+const cssExplorerWidth = ref(`22em`);
 const cssEditorWidth = ref(`calc(100% - 18em)`);
 
 let root = {
@@ -1420,7 +1420,7 @@ function changeClearConsoleOnLoad() {
           <span
             class="clickable"
             @click="
-              cssExplorerWidth = cssExplorerWidth === '20em' ? '3.5em' : '20em';
+              cssExplorerWidth = cssExplorerWidth === '22em' ? '3.5em' : '22em';
               cssEditorWidth =
                 cssEditorWidth === 'calc(100% - 18em)'
                   ? 'calc(100% - 2em)'
@@ -1442,7 +1442,7 @@ function changeClearConsoleOnLoad() {
           <span
             class="clickable ml1"
             @click="uploadFile"
-            v-if="cssExplorerWidth === '20em'"
+            v-if="cssExplorerWidth === '22em'"
           >
             <svg
               style="width:20px; line-height:20px;"
@@ -1459,7 +1459,7 @@ function changeClearConsoleOnLoad() {
           <span
             class="clickable ml1"
             @click="onCreateNewFile"
-            v-if="cssExplorerWidth === '20em'"
+            v-if="cssExplorerWidth === '22em'"
           >
             <svg
               style="width:20px; line-height:20px;"
@@ -1483,7 +1483,7 @@ function changeClearConsoleOnLoad() {
           <span
             class="clickable ml1"
             @click="openConfig"
-            v-if="cssExplorerWidth === '20em'"
+            v-if="cssExplorerWidth === '22em'"
           >
             <svg
               style="width:20px; height:20px; line-height:20px;"
@@ -1500,7 +1500,7 @@ function changeClearConsoleOnLoad() {
           <span
             class="clickable ml1"
             @click="autosaveEnabled = !autosaveEnabled"
-            v-if="cssExplorerWidth === '20em'"
+            v-if="cssExplorerWidth === '22em'"
           >
             <svg
               style="width:20px; height:20px; line-height:20px;"
@@ -1532,7 +1532,7 @@ function changeClearConsoleOnLoad() {
           <span
             class="clickable ml1"
             @click="importFiles"
-            v-if="cssExplorerWidth === '20em'"
+            v-if="cssExplorerWidth === '22em'"
           >
             <svg
               width="20"
@@ -1561,7 +1561,7 @@ function changeClearConsoleOnLoad() {
           <span
             class="clickable ml1"
             @click="exportFiles"
-            v-if="cssExplorerWidth === '20em'"
+            v-if="cssExplorerWidth === '22em'"
           >
             <svg
               width="20"
@@ -1583,7 +1583,7 @@ function changeClearConsoleOnLoad() {
           <span
             class="clickable ml1"
             @click="runDebug"
-            v-if="cssExplorerWidth === '20em'"
+            v-if="cssExplorerWidth === '22em'"
           >
             <svg
               fill="#888"
@@ -1601,7 +1601,7 @@ function changeClearConsoleOnLoad() {
         </div>
       </div>
       <br />
-      <template v-if="cssExplorerWidth === '20em'">
+      <template v-if="cssExplorerWidth === '22em'">
         <div
           v-for="item in treelist"
           class="clickable ml1"
@@ -1669,15 +1669,17 @@ function changeClearConsoleOnLoad() {
           }"
         >
           <div style="margin:1.5em">
-            <p>applications</p>
+            <p>Applications</p>
+            <p>*** Left click to Open, Right click to Rename or Delete (Enter blank name).</p>
             <ul>
               <template v-for="session in sessionList">
-                <li
-                  class="clickable"
-                  @click.left="openSession(session)"
-                  @click.right.prevent="modifyApplication(session)"
-                >
-                  {{ session.name }} ({{ session.oid }})
+                <li>
+                  <span
+                    class="clickable"
+                    @click.left="openSession(session)"
+                    @click.right.prevent="modifyApplication(session)"
+                    >{{ session.name }} ({{ session.oid }})</span
+                  >
                 </li>
               </template>
               <li>

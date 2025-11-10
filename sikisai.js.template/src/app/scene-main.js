@@ -1,6 +1,7 @@
 import scene from "/sikisai.js/core/scene.js";
 import task from "/sikisai.js/core/task.js";
 import clearScreen from "./tasks/clear-screen.js";
+import fireworksFactory from "./factories/fireworks-factory.js";
 
 class SceneMain extends scene.Scene {
   constructor(fpsc, gadpt, iadpt, aadpt) {
@@ -20,6 +21,8 @@ class SceneMain extends scene.Scene {
 
     new clearScreen.TaskClearScreen(ga);
     // bvh.BvhComponent.initialize(ga);
+
+    let c1 = fireworksFactory.spawnSpawnerSimple1(this.gadpt);
   }
 
   update() {
@@ -45,7 +48,10 @@ class SceneMain extends scene.Scene {
     task.TaskManager.runAll();
   }
 
-  draw() {}
+  draw() {
+    let ga = this.gadpt;
+    ga.text(`${this.fpsc.actualFps}`, 0, 10);
+  }
 }
 
 export default {

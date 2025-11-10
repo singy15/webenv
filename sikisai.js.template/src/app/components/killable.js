@@ -1,4 +1,4 @@
-import component from "./component.js";
+import component from "/sikisai.js/core/component.js";
 const Component = component.Component;
 
 class KillableComponent extends Component {

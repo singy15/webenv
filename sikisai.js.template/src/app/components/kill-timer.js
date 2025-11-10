@@ -1,6 +1,6 @@
-import component from "./component.js";
+import component from "/sikisai.js/core/component.js";
 const Component = component.Component;
-import task from "../tasks/task.js";
+import task from "/sikisai.js/core/task.js";
 const Task = task.Task;
 const TaskPriorities = task.TaskPriorities;
 import killable from "./killable.js";
@@ -8,6 +8,7 @@ import killable from "./killable.js";
 class KillTimerComponent extends Component {
   constructor(entity, tmax) {
     super(entity, killable.KillableComponent);
+
     this.tmax = tmax;
     this.t = 0;
 
@@ -38,6 +39,10 @@ class KillTimerComponent extends Component {
 
   getT() {
     return this.t;
+  }
+
+  getRest() {
+    return this.tmax - this.t;
   }
 }
 

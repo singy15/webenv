@@ -58,7 +58,8 @@ async function loadIframe() {
   let src;
   let startTime = Date.now();
   try {
-    src = await bundler.build(appOid);
+    let startup = new URL(decodeURIComponent(`https://localhost/?${document.location.href.split("?")[1]}`)).searchParams.get("startup");
+    src = await bundler.build(appOid, startup);
   } catch (err) {
     console.error("build failed, abort loading.");
     console.error(err);

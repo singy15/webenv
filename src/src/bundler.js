@@ -23,7 +23,7 @@ let virtualFilesType = {}; // text or binary
 let buildScripts = [];
 let buildStyles = [];
 
-async function build(appOid) {
+async function build(appOid, startup = null) {
   let app = await get(`webenv/apps/${appOid}`);
 
   // let resolve = async (path, appOid) => {
@@ -272,7 +272,8 @@ async function build(appOid) {
     bundlerInitialized = true;
   }
 
-  let startupFilePath = await get(`webenv/startup`);
+  //let startupFilePath = await get(`webenv/startup`);
+  let startupFilePath = startup;
   if (lastEntryPointPath !== startupFilePath) {
     esbuildContexts = {};
     lastEntryPointPath = startupFilePath;

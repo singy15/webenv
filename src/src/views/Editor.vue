@@ -949,8 +949,8 @@ async function updateTimestamp() {
   localStorage.setItem(`webenv/debug/version`, ver);
 }
 
-async function buildForDebug(appOid) {
-  let bundled = await bundler.build(appOid);
+async function buildForDebug(appOid, startup) {
+  let bundled = await bundler.build(appOid, startup);
   await set(`webenv/debug/index`, bundled);
   await updateTimestamp();
 }
@@ -989,7 +989,7 @@ async function exportFiles() {
     setGlobalMessage(`Building...`);
     let file = await appApi.getFile(selectedItem.value.handle);
     await set(`webenv/startup`, file.path);
-    await buildForDebug(app.oid);
+    await buildForDebug(app.oid, file.path);
     let bundled = await get(`webenv/debug/index`);
 
     let virtualFiles = [
@@ -1214,7 +1214,7 @@ async function runDebug() {
   let file = await appApi.getFile(selectedItem.value.handle);
   await set(`webenv/startup`, file.path);
   storageUtil.setStorage("reload", false);
-  window.open(location.href + "debug", "_blank");
+  window.open(location.href + "debug" + `?startup=${encodeURIComponent(file.path)}`, "_blank");
 }
 
 async function setBinary(oid, blob) {

@@ -476,7 +476,10 @@ async function build(appOid, startup = null) {
 
     console.log(`building [${e.path}]`);
 
-    let js = (await context.rebuild()).outputFiles[0].text;
+    let result = (await context.rebuild());
+    console.log(result);
+
+    let js = result.outputFiles[0].text;
     mustacheScripts[e.mustacheVar] = js;
   }
 

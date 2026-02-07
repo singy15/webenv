@@ -11,6 +11,7 @@ const iframe = ref(null);
 const msg = ref("");
 const msgSpan = ref(null);
 
+// pseude idb-keyval for development
 set("webenv/idb-test", "ok");
 window.addEventListener("message", async (e) => {
   if (e.source !== iframe.value.contentWindow) return;
@@ -167,6 +168,16 @@ function showMsg(str) {
 }
 
 onMounted(() => {
+  // let origConsole = iframe.value.contentWindow.console;
+  // let origLog = iframe.value.contentWindow.console.log;
+  // let parConsole = window.console;
+  // let parLog = window.console.log;
+  // let log = function (...prms) {
+  //   origLog.apply(origConsole, prms);
+  //   parLog.apply(parConsole, prms);
+  // };
+  // iframe.value.contentWindow.console.log = log;
+
   loadIframe();
   lastVer = localStorage.getItem(`webenv/debug/version`);
   setVerCheckInterval(1000);

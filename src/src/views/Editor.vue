@@ -41,16 +41,16 @@ async function initializeIdb() {
 
   // main script
   let main = await appApi.createFile("/main.js");
-  main.text = `// @@@webenv.script(main)
-
-console.log("it works!");`;
+  main.text = `console.log("it works!");
+await devidb.set("test", "ok");
+console.log(await devidb.get("test"));
+`;
   await appApi.addFile(example1.oid, main);
 
   // style
   let style = await appApi.createFile("/style.css");
-  style.text = `/* @@@webenv.style(style) */
-
-.example1 { color: blue }`;
+  style.text = `.example1 { color: blue }
+`;
   await appApi.addFile(example1.oid, style);
 
   // index
@@ -58,15 +58,12 @@ console.log("it works!");`;
   index.text = `<!DOCTYPE html>
 <html>
 <head>
-<style>
-{{{ style }}}
-</style>
+<style inline="./style.css"></style>
 </head>
 <body>
-  <span class="example1">it works!</span>
-<script type="module" crossorigin>
-{{{ main }}}
-<\/script>
+<span class="example1">it works!</span>
+<script debug><\/script>
+<script type="module" crossorigin inline="./main.js"><\/script>
 </body>
 </html>
 `;
@@ -100,16 +97,16 @@ async function onCreateNewApp() {
 
   // main script
   let main = await appApi.createFile("/main.js");
-  main.text = `// @@@webenv.script(main)
-
-console.log("it works!");`;
+  main.text = `console.log("it works!");
+await devidb.set("test", "ok");
+console.log(await devidb.get("test"));
+`;
   await appApi.addFile(newApp.oid, main);
 
   // style
   let style = await appApi.createFile("/style.css");
-  style.text = `/* @@@webenv.style(style) */
-
-.example1 { color: blue }`;
+  style.text = `.example1 { color: blue }
+`;
   await appApi.addFile(newApp.oid, style);
 
   // index
@@ -117,15 +114,12 @@ console.log("it works!");`;
   index.text = `<!DOCTYPE html>
 <html>
 <head>
-<style>
-{{{ style }}}
-</style>
+<style inline="./style.css"></style>
 </head>
 <body>
-  <span class="example1">it works!</span>
-<script type="module" crossorigin>
-{{{ main }}}
-<\/script>
+<span class="example1">it works!</span>
+<script debug><\/script>
+<script type="module" crossorigin inline="./main.js"><\/script>
 </body>
 </html>
 `;

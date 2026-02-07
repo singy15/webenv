@@ -313,6 +313,45 @@ async function build(appOid, startup = null) {
     // }
   });
 
+  let debugScripts = doc.querySelectorAll("script[debug]");
+  debugScripts.forEach((dscript) => {
+    let mustacheVar = `___debugScript`;
+    mustacheScripts[mustacheVar] = `{
+  let nextId = 0;
+  const pending = {};
+
+  window.addEventListener("message", e => {
+    const { id, result } = e.data;
+    if (pending[id]) {
+      pending[id](result);
+      delete pending[id];
+    }
+  });
+
+  // debug indexeddb
+  window.devidb = {};
+  window.devidb.get = function(key) {
+    return new Promise(resolve => {
+      const id = nextId++;
+      pending[id] = resolve;
+      let type = "get";
+      let val = null;
+      parent.postMessage({ id, type, key, val }, "*");
+    });
+  };
+  window.devidb.set = function(key, val) {
+    return new Promise(resolve => {
+      const id = nextId++;
+      pending[id] = resolve;
+      let type = "set";
+      parent.postMessage({ id, type, key, val }, "*");
+    });
+  };
+}`;
+    dscript.removeAttribute("debug");
+    dscript.textContent = `{{{ ${mustacheVar} }}}`;
+  });
+
   // get cache script from parsed template
   let cacheScripts = doc.querySelectorAll('script[cache="true"]');
   for (let script of cacheScripts) {

@@ -11,6 +11,19 @@ const iframe = ref(null);
 const msg = ref("");
 const msgSpan = ref(null);
 
+set("webenv/idb-test", "ok");
+window.addEventListener("message", async (e) => {
+  if (e.source !== iframe.value.contentWindow) return;
+  const { id, type, key, val } = e.data;
+  if (type === "get") {
+    const result = await get(`devidb/${key}`);
+    e.source.postMessage({ id, result }, "*");
+  } else if (type === "set") {
+    const result = await set(`devidb/${key}`, val);
+    e.source.postMessage({ id, result }, "*");
+  }
+});
+
 async function buildForDebug(appOid) {
   await set(`webenv/debug/index`, await bundler.build(appOid));
 }
@@ -58,7 +71,11 @@ async function loadIframe() {
   let src;
   let startTime = Date.now();
   try {
-    let startup = new URL(decodeURIComponent(`https://localhost/?${document.location.href.split("?")[1]}`)).searchParams.get("startup");
+    let startup = new URL(
+      decodeURIComponent(
+        `https://localhost/?${document.location.href.split("?")[1]}`,
+      ),
+    ).searchParams.get("startup");
     src = await bundler.build(appOid, startup);
   } catch (err) {
     console.error("build failed, abort loading.");

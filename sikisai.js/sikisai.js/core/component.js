@@ -16,6 +16,12 @@ class Component {
     });
   }
 
+  static cget(entity, componentName) {
+    let c = entity.components[componentName];
+    if(!c) throw new Error(`Component [${componentName}] not found.`);
+    return c;
+  }
+
   constructor(entity, ...dependencies) {
     this.entity = entity;
 

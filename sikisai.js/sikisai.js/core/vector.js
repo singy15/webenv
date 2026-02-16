@@ -53,6 +53,16 @@ class Vector {
     return f3;
   }
 
+  static lerp(a, b, t) {
+    a.checkDimension(b);
+    let r = new Vector(a.n);
+    if (a.n >= 4) r.w = a.w + (b.w - a.w) * t;
+    if (a.n >= 3) r.z = a.z + (b.z - a.z) * t;
+    if (a.n >= 2) r.y = a.y + (b.y - a.y) * t;
+    if (a.n >= 1) r.x = a.x + (b.w - a.x) * t;
+    return r;
+  }
+
   constructor(n = 2, defaultValues = [0.0, 0.0, 0.0, 0.0]) {
     if (n <= 0 || n > 4)
       throw new Error(`${n} dimension vector is not supported`);
@@ -290,6 +300,53 @@ class Vector {
     let nb = b.dup().normalize();
     let dp = this.dot(nb);
     return nb.dup().mult(dp);
+  }
+
+  lerp(a, b, t) {
+    this.checkDimension(a);
+    a.checkDimension(b);
+    if (a.n >= 4) this.w = a.w + (b.w - a.w) * t;
+    if (a.n >= 3) this.z = a.z + (b.z - a.z) * t;
+    if (a.n >= 2) this.y = a.y + (b.y - a.y) * t;
+    if (a.n >= 1) this.x = a.x + (b.x - a.x) * t;
+    return this;
+  }
+
+  lerpTo(b, t) {
+    this.checkDimension(b);
+    if (this.n >= 4) this.w = this.w + (b.w - this.w) * t;
+    if (this.n >= 3) this.z = this.z + (b.z - this.z) * t;
+    if (this.n >= 2) this.y = this.y + (b.y - this.y) * t;
+    if (this.n >= 1) this.x = this.x + (b.x - this.x) * t;
+    return this;
+  }
+
+  lerpTo2DClamped(b, t, max) {
+    this.checkDimension(b);
+    this.add(b.dup().sub(this).mult(t).clampSqr(max));
+    return this;
+  }
+
+  lerpDiff2DClamped(b, t, max) {
+    this.checkDimension(b);
+    return Vector.$(0.0, 0.0).add(b.dup().sub(this).mult(t).clampSqr(max));
+  }
+
+  lerpDiff(b, t) {
+    this.checkDimension(b);
+    let v = this.dup();
+    if (this.n >= 4) v.w = (b.w - this.w) * t;
+    if (this.n >= 3) v.z = (b.z - this.z) * t;
+    if (this.n >= 2) v.y = (b.y - this.y) * t;
+    if (this.n >= 1) v.x = (b.x - this.x) * t;
+    return v;
+  }
+
+  clampSqr(len) {
+    if (this.norm2() > len ** 2) {
+      this.normalize().mult(len);
+    }
+    return this;
   }
 }
 

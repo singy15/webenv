@@ -123,7 +123,7 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     c.rotate(opts.angle || 0.0);
     c.scale(opts.scaleX || 1.0, opts.scaleY || 1.0);
     c.globalAlpha = opts.globalAlpha ?? 1.0;
-    //c.filter = ``;
+
     if (
       opts.sx !== undefined &&
       opts.sy !== undefined &&

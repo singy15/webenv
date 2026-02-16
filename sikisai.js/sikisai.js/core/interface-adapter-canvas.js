@@ -36,8 +36,8 @@ class InterfaceAdapterCanvas extends interfaceAdapter.InterfaceAdapter {
     });
 
     canvas.addEventListener("mousemove", (e) => {
-      let x = e.clientX - this.metrics.x;
-      let y = e.clientY - this.metrics.y;
+      let x = e.offsetX;
+      let y = e.offsetY;
       this.stateQueue.push(() => {
         this.stateMouse.x = x;
         this.stateMouse.y = y;

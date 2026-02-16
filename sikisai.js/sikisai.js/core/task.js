@@ -1,4 +1,4 @@
-import list from "./list.js";
+import list from "../list.js";
 
 class TaskPriorities {
   static initialize = 30000;

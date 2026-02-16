@@ -1,3 +1,8 @@
+console.log("it works!");
+await devidb.set("test", "ok");
+console.log(await devidb.get("test"));
+
+
 import fpsController from "/sikisai.js/core/fps-controller.js";
 import graphicsAdapterCanvas from "/sikisai.js/core/graphics-adapter-canvas.js";
 import interfaceAdapterCanvas from "/sikisai.js/core/interface-adapter-canvas.js";

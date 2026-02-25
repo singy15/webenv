@@ -1,14 +1,14 @@
 import ecs from "./ecs.js";
 const Registry = ecs.Registry;
-const EntityRef = ecs.EntityRef;
 const ArraySparseSet = ecs.ArraySparseSet;
 const Archtype = ecs.Archtype;
 const EntityState = ecs.EntityState;
 const ComponentIdManager = ecs.ComponentIdManager;
+const Task = ecs.Task;
+const TaskManager = ecs.TaskManager;
 
 import vector from "./vector.js";
 const v$ = vector.Vector.$;
-import list from "./list.js";
 
 class PositionComponent {
   static id = "position";
@@ -33,7 +33,7 @@ class Test1Component {
 
 describe("Registry", function () {
   beforeEach(function () {
-    this.reg = new Registry();
+    this.reg = new Registry(10000);
   });
   it("constructor", function () {
     expect(this.reg._currentEntityId).toBe(0);
@@ -41,8 +41,8 @@ describe("Registry", function () {
     expect(this.reg._maxEntityCount).toBe(10000);
   });
   it("createEntity", function () {
+    expect(this.reg.createEntity()).toBe(0);
     expect(this.reg.createEntity()).toBe(1);
-    expect(this.reg.createEntity()).toBe(2);
     expect(this.reg._entityToCompCtorSetMap[1]).not.toBeNull();
     expect(this.reg._entityToCompCtorSetMap[2]).not.toBeNull();
     expect(this.reg._entityState[1]).toBe(EntityState.Active);
@@ -70,19 +70,36 @@ describe("Registry", function () {
     this.reg.addComponent(e1, c1);
     expect(this.reg.getComponent(e1, PositionComponent)).toBe(c1);
   });
-  it("deleteEntity", function () {
+  it("_destroyEntity", function () {
     const e1 = this.reg.createEntity();
     this.reg.addComponent(e1, new PositionComponent());
     const e2 = this.reg.createEntity();
     this.reg.addComponent(e2, new PositionComponent());
     const e3 = this.reg.createEntity();
     this.reg.addComponent(e3, new PositionComponent());
-    this.reg.deleteEntity(e2);
+    this.reg._destroyEntity(e2);
     expect(this.reg.isEntityActive(e1)).toBe(true);
     expect(this.reg.isEntityActive(e2)).toBe(false);
     expect(this.reg.isEntityActive(e3)).toBe(true);
+    expect(this.reg._archtypes[0].entities().length).toBe(2);
   });
-  xit("Performance create 10000 entities in 1 frame", function () {
+  it("deleteEntity", function () {
+    const e1 = this.reg.createEntity();
+    this.reg.deleteEntity(e1);
+    expect(this.reg._entityState[e1]).toBe(EntityState.Deleting);
+    expect(this.reg._entityDeleting.length).toBe(1);
+  });
+  it("batchDestoryEntity", function () {
+    const e1 = this.reg.createEntity();
+    this.reg.deleteEntity(e1);
+    const e2 = this.reg.createEntity();
+    this.reg.deleteEntity(e2);
+    expect(this.reg._entityDeleting.length).toBe(2);
+    this.reg._batchDestroyEntity();
+    // expect(this.reg._entityDeleting.length).toBe(0);
+    // expect(this.reg._entityFreelist.length).toBe(2);
+  });
+  it("Performance create 10000 entities in 1 frame", function () {
     // pending();
     const st = performance.now();
     for (let i = 0; i < 10000; i++) {
@@ -91,7 +108,7 @@ describe("Registry", function () {
     const ed = performance.now();
     expect(ed - st).toBeLessThan(1000 / 60);
   });
-  xit("Performance create 100 entities and add 50 component for each entity in 1 frame", function () {
+  it("Performance create 100 entities and add 50 component for each entity in 1 frame", function () {
     // pending();
 
     const nEntity = 100;
@@ -121,8 +138,6 @@ describe("Registry", function () {
       total += ee - ss;
     }
     const ed = performance.now();
-    console.log(this.reg._archtypes);
-    console.log(total);
     expect(ed - st).toBeLessThan((1000 / 60) * 1);
   });
   it("queries", function () {
@@ -154,8 +169,6 @@ describe("Registry", function () {
         );
       }
     }
-
-    console.log("physics", c1, "position", c2, "physics + position", c3);
 
     expect(this.reg._queryEntity(true, PhysicsComponent).length).toBe(c1);
     expect(this.reg._queryEntity(false, PhysicsComponent).length).toBe(c1 + c3);
@@ -247,100 +260,13 @@ describe("Archtype", function () {
       Archtype.isSame(Archtype.toKey(query4), Archtype.toKey(arch1), false),
     ).toBe(false);
   });
-});
-
-xdescribe("MapSparseSet", function () {
-  beforeEach(function () {
-    this.mss = new MapSparseSet();
-  });
-  it("constructor", function () {
-    expect(this.mss._dense.length).toBe(0);
-    expect(this.mss._sparse.size).toBe(0);
-    expect(this.mss._data.length).toBe(0);
-  });
-  it("addEntry", function () {
-    this.mss.addEntry(1, { a: 1, b: 2 });
-    expect(this.mss._dense.length).toBe(1);
-    expect(this.mss._data.length).toBe(1);
-    expect(this.mss._sparse.size).toBe(1);
-    this.mss.addEntry(2, { a: 2, b: 3 });
-    expect(this.mss._dense.length).toBe(2);
-    expect(this.mss._data.length).toBe(2);
-    expect(this.mss._sparse.size).toBe(2);
-    expect(this.mss._dense[0]).toBe(1);
-    expect(this.mss._dense[1]).toBe(2);
-    expect(this.mss._data[0].a).toBe(1);
-    expect(this.mss._data[1].a).toBe(2);
-    expect(this.mss._sparse.get(1)).toBe(0);
-    expect(this.mss._sparse.get(2)).toBe(1);
-    expect(() => {
-      this.mss.addEntry(1, { a: 2 });
-    }).toThrow();
-  });
-  it("getEntry", function () {
-    this.mss.addEntry(1, { a: 1, b: 2 });
-    this.mss.addEntry(2, { a: 2, b: 4 });
-    this.mss.addEntry(3, { a: 3, b: 6 });
-    expect(this.mss.getEntry(2).b).toBe(4);
-    expect(() => {
-      this.mss.getEntry(5);
-    }).toThrow();
-  });
-  it("deleteEntry", function () {
-    this.mss.addEntry(1, { a: 1, b: 2 });
-    this.mss.addEntry(2, { a: 2, b: 4 });
-    this.mss.addEntry(3, { a: 3, b: 6 });
-    this.mss.deleteEntry(2);
-    expect(this.mss.exists(2)).toBe(false);
-    expect(() => {
-      this.mss.getEntry(2);
-    }).toThrow();
-    this.mss.addEntry(2, { a: 4, b: 8 });
-    expect(this.mss.getEntry(2).a).toBe(4);
-  });
-  it("entries", function () {
-    this.mss.addEntry(1, { a: 1, b: 2 });
-    this.mss.addEntry(2, { a: 2, b: 4 });
-    this.mss.addEntry(3, { a: 3, b: 6 });
-    let i = 0;
-    for (let entry of this.mss.entries()) {
-      expect(entry.a).toBe(i + 1);
-      i++;
-    }
-  });
-  it("keys", function () {
-    this.mss.addEntry(1, { a: 1, b: 2 });
-    this.mss.addEntry(2, { a: 2, b: 4 });
-    this.mss.addEntry(3, { a: 3, b: 6 });
-    let i = 0;
-    for (let key of this.mss.keys()) {
-      expect(key).toBe(i + 1);
-      i++;
-    }
-  });
-  it("performance", function () {
-    pending();
-    const s1 = performance.now();
-    const map1 = new Map();
-    for (let i = 0; i < 10000; i++) {
-      map1.set(i, i);
-    }
-    for (let i = 0; i < 10000; i++) {
-      map1.get(i);
-    }
-    const e1 = performance.now();
-
-    const s2 = performance.now();
-    const map2 = new MapSparseSet();
-    for (let i = 0; i < 10000; i++) {
-      map2.addEntry(i, i);
-    }
-    for (let i = 0; i < 10000; i++) {
-      map2.getEntry(i);
-    }
-    const e2 = performance.now();
-
-    expect(e2 - s2).toBeLessThan(e1 - s1);
+  it("toKey/toKeyStr", function () {
+    ComponentIdManager.clear();
+    const cset = new Set();
+    [PositionComponent, PhysicsComponent].forEach((c) => cset.add(c));
+    const arch = new Archtype(cset);
+    expect(Archtype.toKey(cset)).toEqual([1, 2]);
+    expect(Archtype.toKeyStr(cset)).toEqual("1,2");
   });
 });
 
@@ -413,76 +339,76 @@ describe("ArraySparseSet", function () {
   });
 });
 
-xdescribe("FastSparseSet", function () {
-  beforeEach(function () {
-    this.mss = new FastSparseSet(10000);
-  });
-  it("constructor", function () {
-    // expect(this.mss._dense.count()).toBe(0);
-    expect(this.mss._sparse.length).toBe(10000);
-    expect(this.mss._data.count()).toBe(0);
-  });
-  it("addEntry", function () {
-    this.mss.addEntry(1, { a: 1, b: 2 });
-    expect(this.mss._data.count()).toBe(1);
-    expect(this.mss._sparse[1]).not.toBeNull();
-    expect(this.mss._sparse[1].value.b).toBe(2);
-    this.mss.addEntry(2, { a: 2, b: 3 });
-    expect(this.mss._data.count()).toBe(2);
-    expect(this.mss._sparse[2]).not.toBeNull();
-    expect(this.mss._sparse[2].value.b).toBe(3);
-    expect(() => {
-      this.mss.addEntry(1, { a: 2 });
-    }).toThrow();
-  });
-  it("getEntry", function () {
-    this.mss.addEntry(1, { a: 1, b: 2 });
-    this.mss.addEntry(2, { a: 2, b: 4 });
-    this.mss.addEntry(3, { a: 3, b: 6 });
-    expect(this.mss.getEntry(2).b).toBe(4);
-    expect(() => {
-      this.mss.getEntry(5);
-    }).toThrow();
-  });
-  it("deleteEntry", function () {
-    this.mss.addEntry(1, { a: 1, b: 2 });
-    this.mss.addEntry(2, { a: 2, b: 4 });
-    this.mss.addEntry(3, { a: 3, b: 6 });
-    this.mss.deleteEntry(2);
-    expect(this.mss.exists(2)).toBe(false);
-    expect(() => {
-      this.mss.getEntry(2);
-    }).toThrow();
-    this.mss.addEntry(2, { a: 4, b: 8 });
-    expect(this.mss.getEntry(2).a).toBe(4);
-  });
-  // it("entries", function () {
-  //   this.mss.addEntry(1, { a: 1, b: 2 });
-  //   this.mss.addEntry(2, { a: 2, b: 4 });
-  //   this.mss.addEntry(3, { a: 3, b: 6 });
-  //   let i = 0;
-  //   for (let entry of this.mss.entries()) {
-  //     expect(entry.a).toBe(i + 1);
-  //     i++;
-  //   }
-  // });
-  // it("keys", function () {
-  //   this.mss.addEntry(1, { a: 1, b: 2 });
-  //   this.mss.addEntry(2, { a: 2, b: 4 });
-  //   this.mss.addEntry(3, { a: 3, b: 6 });
-  //   let i = 0;
-  //   for (let key of this.mss.keys()) {
-  //     expect(key).toBe(i + 1);
-  //     i++;
-  //   }
-  // });
-});
-
 describe("ComponentIdManager", function () {
   it("getId", function () {
     ComponentIdManager.clear();
     expect(ComponentIdManager.getId(PhysicsComponent)).toBe(1);
     expect(ComponentIdManager.getId(PositionComponent)).toBe(2);
     expect(ComponentIdManager.getId(PhysicsComponent)).toBe(1);
+  });
+});
+
+describe("Integration Test", function () {
+  it("Registry", function () {
+    ComponentIdManager.clear();
+    const reg = new Registry(10000);
+
+    const e1 = reg.createEntity();
+    let ph1 = new PhysicsComponent();
+    let po1 = new PositionComponent();
+    reg.addComponent(e1, ph1, po1);
+
+    for (const e of reg.query(true, PhysicsComponent, PositionComponent)) {
+      const ph = reg.getComponent(e1, PhysicsComponent);
+      const po = reg.getComponent(e1, PositionComponent);
+      ph.v.add(v$(1.0, 2.0));
+      ph.p.add(ph.v);
+      po.x = ph.p.x;
+      po.y = ph.p.y;
+    }
+
+    expect(ph1.v.x).toBe(1.0);
+    expect(ph1.v.y).toBe(2.0);
+    expect(ph1.p.x).toBe(1.0);
+    expect(ph1.p.y).toBe(2.0);
+    expect(po1.x).toBe(1.0);
+    expect(po1.y).toBe(2.0);
+  });
+});
+
+class TestTask extends Task {
+  constructor(manager, ls, add, priority) {
+    super(manager, priority);
+    this.ls = ls;
+    this.add = add;
+  }
+
+  run() {
+    this.ls.push(this.add);
+  }
+}
+
+describe("task.js", () => {
+  beforeEach(function () {
+    this.tm = new TaskManager();
+  });
+
+  it("TaskManager", function () {
+    let ls = [];
+    let t1 = new TestTask(this.tm, ls, 3, 100);
+    let t2 = new TestTask(this.tm, ls, 1, 200);
+    let t3 = new TestTask(this.tm, ls, 2, 150);
+    let t4 = new TestTask(this.tm, ls, 4, 50);
+
+    let ts = [t2, t3, t1, t4];
+    this.tm.repository().each((e, i, l, n) => {
+      expect(e).toBe(ts[n]);
+    });
+
+    this.tm.runAll();
+    expect(ls).toEqual([1, 2, 3, 4]);
+
+    this.tm.clearAll();
+    expect(this.tm.repository().count()).toBe(0);
   });
 });

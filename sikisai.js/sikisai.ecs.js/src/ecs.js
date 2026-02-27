@@ -415,6 +415,11 @@ class ArraySparseSet {
     return this._data[this._sparse[id]];
   }
 
+  getOrNull(id) {
+    const idx = this._sparse[id];
+    return idx >= 0 ? this._data[idx] : null;
+  }
+
   has(id) {
     if (DEVMODE) this.checkSparseBounds(id);
     const idx = this._sparse[id];
@@ -538,6 +543,79 @@ class Archetype {
   }
 }
 
+class CommandBuffer {
+  constructor() {
+    this._commands = [];
+  }
+
+  createEntity(...components) {
+    const cmd = {
+      type: "createEntity",
+      components,
+      callback: null,
+      after: (fn) => {
+        cmd.callback = fn;
+      },
+    };
+    this._addCommand(cmd);
+    return cmd;
+  }
+
+  removeComponent(entity, ...componentCtors) {
+    const cmd = {
+      type: "removeComponent",
+      entity,
+      componentCtors,
+      callback: null,
+      after: (fn) => {
+        cmd.callback = fn;
+      },
+    };
+    this._addCommand(cmd);
+    return cmd;
+  }
+
+  deleteEntity(entity) {
+    const cmd = {
+      type: "deleteEntity",
+      entity,
+      callback: null,
+      after: (fn) => {
+        cmd.callback = fn;
+      },
+    };
+    this._addCommand(cmd);
+    return cmd;
+  }
+
+  _addCommand(cmd) {
+    this._commands.push(cmd);
+  }
+
+  flush(registry) {
+    for (const cmd of this._commands) {
+      switch (cmd.type) {
+        case "createEntity":
+          const e = registry.createEntity();
+          registry.addComponent(e, ...cmd.components);
+          if (cmd.callback) cmd.callback(e);
+          break;
+
+        case "removeComponent":
+          registry.removeComponent(cmd.entity, ...cmd.componentCtors);
+          if (cmd.callback) cmd.callback(cmd.entity);
+          break;
+
+        case "deleteEntity":
+          registry.deleteEntity(cmd.entity);
+          if (cmd.callback) cmd.callback(cmd.entity);
+          break;
+      }
+    }
+    this._commands.length = 0;
+  }
+}
+
 const EntityState = {
   Deleted: 0,
   Active: 1,
@@ -565,6 +643,7 @@ class Registry {
     this._archetypeKeyStrToArchetype = new Map();
 
     this._taskManager = new TaskManager();
+    this._commandBuffer = new CommandBuffer();
   }
 
   createEntity() {
@@ -580,6 +659,10 @@ class Registry {
     this._entityState[entityId] = EntityState.Active;
     this._entityToCompCtorSetMap[entityId].clear();
     return entityId;
+  }
+
+  deferCreateEntity(...components) {
+    return this._commandBuffer.createEntity(...components);
   }
 
   addComponent(entity, ...components) {
@@ -617,6 +700,10 @@ class Registry {
     this._updateArchetype(entity);
   }
 
+  deferRemoveComponent(entity, ...componentCtors) {
+    return this._commandBuffer.removeComponent(entity, ...componentCtors);
+  }
+
   _updateArchetype(entity) {
     //// archetype identification
     let identifiedArchetype = null;
@@ -647,7 +734,7 @@ class Registry {
   }
 
   getComponent(entity, componentCtor) {
-    return this._compCtorToCompStoreMap.get(componentCtor)?.get(entity) ?? null;
+    return this._compCtorToCompStoreMap.get(componentCtor)?.getOrNull(entity) ?? null;
   }
 
   _destroyEntity(entity) {
@@ -669,6 +756,10 @@ class Registry {
     if (this._entityState[entity] === EntityState.Deleting) return;
     this._entityState[entity] = EntityState.Deleting;
     this._entityDeleting.push(entity);
+  }
+
+  deferDeleteEntity(entity) {
+    return this._commandBuffer.deleteEntity(entity);
   }
 
   _batchDestroyEntity() {
@@ -812,6 +903,7 @@ class Registry {
     for (let i = 0; i < step; i++) {
       this._taskManager.runAll();
       this._batchDestroyEntity();
+      this._commandBuffer.flush(this);
     }
   }
 
@@ -819,6 +911,19 @@ class Registry {
     return new EntityRef(entity, this._entityGen[entity]);
   }
 }
+
+export {
+  TaskPriority,
+  Task,
+  TaskManager,
+  Registry,
+  ArraySparseSet,
+  Archetype,
+  EntityRef,
+  EntityState,
+  ComponentIdManager,
+  CommandBuffer,
+};
 
 export default {
   TaskPriority,
@@ -830,4 +935,5 @@ export default {
   EntityRef,
   EntityState,
   ComponentIdManager,
+  CommandBuffer,
 };

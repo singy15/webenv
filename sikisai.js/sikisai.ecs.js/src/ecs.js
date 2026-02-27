@@ -275,7 +275,7 @@ class ListIterator {
   }
 }
 
-const TaskPriorities = {
+const TaskPriority = {
   Initialize: 30000,
   Update: 20000,
   Draw: 10000,
@@ -423,6 +423,7 @@ class ArraySparseSet {
 
   delete(id) {
     if (DEVMODE) this.checkSparseBounds(id);
+    if (!this.has(id)) throw new Error(`Entry [${id}] not registered`);
     const idx = this._sparse[id];
     const tailIdx = this._dense.length - 1;
     if (idx !== tailIdx) {
@@ -450,12 +451,17 @@ class ArraySparseSet {
 }
 
 class EntityRef {
-  constructor(id) {
+  constructor(id, gen) {
     this._id = id;
+    this._gen = gen;
   }
 
   getId() {
     return this._id;
+  }
+
+  getGen() {
+    return this._gen;
   }
 }
 
@@ -474,13 +480,13 @@ class ComponentIdManager {
   }
 }
 
-class Archtype {
+class Archetype {
   static toKey(componentCtorSet) {
     const ctors = [];
     for (const ctor of componentCtorSet) {
       ctors.push(ComponentIdManager.getId(ctor));
     }
-    return ctors.sort();
+    return ctors.sort((a, b) => a - b);
   }
 
   static toKeyStr(componentCtorSet) {
@@ -507,12 +513,16 @@ class Archtype {
     for (let ctor of componentCtorSet) {
       this._componentCtorSet.add(ctor);
     }
-    this._key = Archtype.toKey(componentCtorSet);
+    this._key = Archetype.toKey(componentCtorSet);
     this._entities = new ArraySparseSet(this._maxEntityCount);
   }
 
   match(componentCtorSet, exact = true) {
-    return Archtype.isSame(Archtype.toKey(componentCtorSet), this._key, exact);
+    return Archetype.isSame(
+      Archetype.toKey(componentCtorSet),
+      this._key,
+      exact,
+    );
   }
 
   addEntry(entity) {
@@ -547,19 +557,21 @@ class Registry {
     this._compCtorToCompStoreMap = new Map();
     this._entityToCompCtorSetMap = initArray(() => new Set());
     this._entityState = initArray(() => EntityState.Deleted);
-    this._entityArchtype = initArray(() => null);
+    this._entityArchetype = initArray(() => null);
     this._entityGen = initArray(() => 0);
     this._entityFreelist = [];
     this._entityDeleting = [];
-    this._archtypes = [];
-    this._archtypeKeyStrToArchtype = new Map();
+    this._archetypes = [];
+    this._archetypeKeyStrToArchetype = new Map();
+
+    this._taskManager = new TaskManager();
   }
 
   createEntity() {
     let entityId;
-    if (entityId >= this._maxEntityCount) {
+    if (this._currentEntityId >= this._maxEntityCount) {
       if (this._entityFreelist.length === 0) {
-        throw new Error(`Maximum acttive entity count exceeded.`);
+        throw new Error(`Maximum active entity count exceeded.`);
       }
       entityId = this._entityFreelist.pop();
     } else {
@@ -585,44 +597,57 @@ class Registry {
       this._entityToCompCtorSetMap[entity].add(ctor);
     }
 
-    //// archtype identification
-    let identifiedArchtype = null;
-    const ctorsSet = this._entityToCompCtorSetMap[entity];
-    const keyStr = Archtype.toKeyStr(ctorsSet);
-    if (this._archtypeKeyStrToArchtype.has(keyStr)) {
-      identifiedArchtype = this._archtypeKeyStrToArchtype.get(keyStr);
-    }
-    if (!identifiedArchtype) {
-      // create new archtype
-      const newArchtype = new Archtype(ctorsSet, this._maxEntityCount);
-      this._archtypes.push(newArchtype);
-      this._archtypeKeyStrToArchtype.set(keyStr, newArchtype);
-      identifiedArchtype = newArchtype;
-    }
-
-    //// delete entity -> archtype map
-    const curArchtype = this._entityArchtype[entity];
-    if (curArchtype != identifiedArchtype) {
-      if (curArchtype) curArchtype.deleteEntry(entity);
-    }
-
-    //// entry entity -> archtype map
-    this._entityArchtype[entity] = identifiedArchtype;
-
-    //// entry archtype entities
-    identifiedArchtype.addEntry(entity);
+    this._updateArchetype(entity);
 
     return entity;
   }
 
-  getComponent(entity, componentCtor) {
-    let c = this._compCtorToCompStoreMap.get(componentCtor)?.get(entity);
-    if (!c) {
-      throw new Error(
-        `Component [${componentCtor.name}] for entity id=${entity} not found`,
-      );
+  removeComponent(entity, ...componentCtors) {
+    for (const ctor of componentCtors) {
+      let store = this._compCtorToCompStoreMap.get(ctor);
+      if (!store) {
+        throw new Error(`Entity [${entity}] not has [${ctor.name}]`);
+      }
+      if (!store.has(entity))
+        throw new Error(`Entity [${entity} not has ${ctor.name}]`);
+      store.delete(entity);
+      this._entityToCompCtorSetMap[entity].delete(ctor);
     }
-    return c;
+
+    this._updateArchetype(entity);
+  }
+
+  _updateArchetype(entity) {
+    //// archetype identification
+    let identifiedArchetype = null;
+    const ctorsSet = this._entityToCompCtorSetMap[entity];
+    const keyStr = Archetype.toKeyStr(ctorsSet);
+    if (this._archetypeKeyStrToArchetype.has(keyStr)) {
+      identifiedArchetype = this._archetypeKeyStrToArchetype.get(keyStr);
+    }
+    if (!identifiedArchetype) {
+      // create new archetype
+      const newArchetype = new Archetype(ctorsSet, this._maxEntityCount);
+      this._archetypes.push(newArchetype);
+      this._archetypeKeyStrToArchetype.set(keyStr, newArchetype);
+      identifiedArchetype = newArchetype;
+    }
+
+    //// delete entity -> archetype map
+    const curArchetype = this._entityArchetype[entity];
+    if (curArchetype != identifiedArchetype) {
+      if (curArchetype) curArchetype.deleteEntry(entity);
+    }
+
+    //// entry entity -> archetype map
+    this._entityArchetype[entity] = identifiedArchetype;
+
+    //// entry archetype entities
+    identifiedArchetype.addEntry(entity);
+  }
+
+  getComponent(entity, componentCtor) {
+    return this._compCtorToCompStoreMap.get(componentCtor)?.get(entity) ?? null;
   }
 
   _destroyEntity(entity) {
@@ -632,8 +657,8 @@ class Registry {
     for (let ctor of ctors) {
       this._compCtorToCompStoreMap.get(ctor).delete(entity);
     }
-    this._entityArchtype[entity]?.deleteEntry(entity);
-    this._entityArchtype[entity] = null;
+    this._entityArchetype[entity]?.deleteEntry(entity);
+    this._entityArchetype[entity] = null;
     this._entityToCompCtorSetMap[entity].clear();
     this._entityState[entity] = EntityState.Deleted;
     this._entityGen[entity]++;
@@ -641,6 +666,7 @@ class Registry {
   }
 
   deleteEntity(entity) {
+    if (this._entityState[entity] === EntityState.Deleting) return;
     this._entityState[entity] = EntityState.Deleting;
     this._entityDeleting.push(entity);
   }
@@ -649,10 +675,19 @@ class Registry {
     for (const entity of this._entityDeleting) {
       this._destroyEntity(entity);
     }
+    this._entityDeleting.length = 0;
   }
 
   isEntityActive(entity) {
     return this._entityState[entity] === EntityState.Active;
+  }
+
+  isEntityRefActive(entityRef) {
+    let id = entityRef.getId();
+    return (
+      this._entityGen[id] === entityRef.getGen() &&
+      this._entityState[id] === EntityState.Active
+    );
   }
 
   isEntityNotDeleted(entity) {
@@ -692,26 +727,59 @@ class Registry {
     return result;
   }
 
-  _findArchtype(requiredComponentCtors, exact = true) {
+  _findArchetype(requiredComponentCtors, exact = true) {
     const matchedArchetypes = [];
-    for (let archtype of this._archtypes) {
-      if (archtype.match(requiredComponentCtors, exact)) {
-        matchedArchetypes.push(archtype);
+    if (exact) {
+      let match = this._archetypeKeyStrToArchetype.get(
+        Archetype.toKeyStr(requiredComponentCtors),
+      );
+      if (match) {
+        matchedArchetypes.push(match);
+      }
+    } else {
+      for (let archetype of this._archetypes) {
+        if (archetype.match(requiredComponentCtors, exact)) {
+          matchedArchetypes.push(archetype);
+        }
       }
     }
     return matchedArchetypes;
   }
 
   *query(exact, ...requiredComponentCtors) {
-    for (const archtype of this._findArchtype(requiredComponentCtors, exact)) {
-      yield* archtype.entities();
+    for (const archetype of this._findArchetype(
+      requiredComponentCtors,
+      exact,
+    )) {
+      for (const entity of archetype.entities()) {
+        if (this._entityState[entity] !== EntityState.Active) continue;
+        yield entity;
+      }
+    }
+  }
+
+  queryEach(exact, fn, ...requiredComponentCtors) {
+    for (const archetype of this._findArchetype(
+      requiredComponentCtors,
+      exact,
+    )) {
+      for (const entity of archetype.entities()) {
+        if (this._entityState[entity] !== EntityState.Active) continue;
+        fn(entity, archetype);
+      }
     }
   }
 
   count(exact, ...requiredComponentCtors) {
     let entityCount = 0;
-    for (const archtype of this._findArchtype(requiredComponentCtors, exact)) {
-      entityCount += archtype.entities().length;
+    for (const archetype of this._findArchetype(
+      requiredComponentCtors,
+      exact,
+    )) {
+      for (const entity of archetype.entities()) {
+        if (this._entityState[entity] !== EntityState.Active) continue;
+        entityCount++;
+      }
     }
     return entityCount;
   }
@@ -723,16 +791,42 @@ class Registry {
       );
     return this._entityToCompCtorSetMap[entity];
   }
+
+  registerTask(fn, priority) {
+    return new Task(this._taskManager, priority, fn);
+  }
+
+  runAllTask() {
+    this._taskManager.runAll();
+  }
+
+  clearAllTask() {
+    this._taskManager.clearAll();
+  }
+
+  deleteTask(task) {
+    task.kill();
+  }
+
+  update(step = 1) {
+    for (let i = 0; i < step; i++) {
+      this._taskManager.runAll();
+      this._batchDestroyEntity();
+    }
+  }
+
+  toRef(entity) {
+    return new EntityRef(entity, this._entityGen[entity]);
+  }
 }
 
 export default {
-  List,
-  TaskPriorities,
+  TaskPriority,
   Task,
   TaskManager,
   Registry,
   ArraySparseSet,
-  Archtype,
+  Archetype,
   EntityRef,
   EntityState,
   ComponentIdManager,

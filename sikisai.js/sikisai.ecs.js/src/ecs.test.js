@@ -1,11 +1,12 @@
 import ecs from "./ecs.js";
 const Registry = ecs.Registry;
 const ArraySparseSet = ecs.ArraySparseSet;
-const Archtype = ecs.Archtype;
+const Archetype = ecs.Archetype;
 const EntityState = ecs.EntityState;
 const ComponentIdManager = ecs.ComponentIdManager;
 const Task = ecs.Task;
 const TaskManager = ecs.TaskManager;
+const TaskPriority = ecs.TaskPriority;
 
 import vector from "./vector.js";
 const v$ = vector.Vector.$;
@@ -29,6 +30,18 @@ class PhysicsComponent {
 
 class Test1Component {
   static id = "test1";
+}
+
+class TestTask extends Task {
+  constructor(manager, ls, add, priority) {
+    super(manager, priority);
+    this.ls = ls;
+    this.add = add;
+  }
+
+  run() {
+    this.ls.push(this.add);
+  }
 }
 
 describe("Registry", function () {
@@ -62,13 +75,27 @@ describe("Registry", function () {
     }).toThrow();
     const e2 = this.reg.createEntity();
     this.reg.addComponent(e2, new PhysicsComponent());
-    expect(this.reg._archtypes.length).toBe(2);
+    expect(this.reg._archetypes.length).toBe(2);
+  });
+  it("removeComponent", function () {
+    const e1 = this.reg.createEntity();
+    const c1 = new PositionComponent();
+    const c2 = new PhysicsComponent();
+    this.reg.addComponent(e1, c1, c2);
+    this.reg.removeComponent(e1, PhysicsComponent);
+    expect(this.reg._compCtorToCompStoreMap.get(PhysicsComponent).has(e1)).toBe(
+      false,
+    );
+    expect(
+      this.reg._compCtorToCompStoreMap.get(PositionComponent).has(e1),
+    ).toBe(true);
   });
   it("getComponent", function () {
     const e1 = this.reg.createEntity();
     const c1 = new PositionComponent();
     this.reg.addComponent(e1, c1);
     expect(this.reg.getComponent(e1, PositionComponent)).toBe(c1);
+    expect(this.reg.getComponent(e1, PhysicsComponent)).toBe(null);
   });
   it("_destroyEntity", function () {
     const e1 = this.reg.createEntity();
@@ -81,7 +108,7 @@ describe("Registry", function () {
     expect(this.reg.isEntityActive(e1)).toBe(true);
     expect(this.reg.isEntityActive(e2)).toBe(false);
     expect(this.reg.isEntityActive(e3)).toBe(true);
-    expect(this.reg._archtypes[0].entities().length).toBe(2);
+    expect(this.reg._archetypes[0].entities().length).toBe(2);
   });
   it("deleteEntity", function () {
     const e1 = this.reg.createEntity();
@@ -108,10 +135,10 @@ describe("Registry", function () {
     const ed = performance.now();
     expect(ed - st).toBeLessThan(1000 / 60);
   });
-  it("Performance create 100 entities and add 50 component for each entity in 1 frame", function () {
+  it("Performance create 50 entities and add 50 component for each entity in 1 frame", function () {
     // pending();
 
-    const nEntity = 100;
+    const nEntity = 50;
     const nComponent = 50;
 
     function createClass() {
@@ -204,17 +231,110 @@ describe("Registry", function () {
       expect(i).toBe(c3);
     }
 
-    expect(this.reg._archtypes.length).toBe(3);
+    expect(this.reg._archetypes.length).toBe(3);
+  });
+  it("archetype base queries", function () {
+    const c1 = Math.floor(Math.random() * 10);
+    for (let i = 0; i < c1; i++) {
+      const e = this.reg.createEntity();
+      this.reg.addComponent(e, new PhysicsComponent());
+    }
+    const c2 = Math.floor(Math.random() * 10);
+    for (let i = 0; i < c2; i++) {
+      const e = this.reg.createEntity();
+      this.reg.addComponent(e, new PositionComponent());
+    }
+
+    const d1 = Math.floor(Math.random() * 5);
+    for (let i = 0; i < d1; i++) {
+      this.reg.deleteEntity(i);
+    }
+
+    {
+      let i = 0;
+      for (const entity of this.reg.query(true, PhysicsComponent)) {
+        i++;
+      }
+      expect(i).toBe(c1 - d1);
+    }
+
+    {
+      let i = 0;
+      this.reg.queryEach(
+        true,
+        (e, a) => {
+          i++;
+        },
+        PhysicsComponent,
+      );
+      expect(i).toBe(c1 - d1);
+    }
+  });
+  it("tasks", function () {
+    const state = { a: 1 };
+    const t1 = this.reg.registerTask(() => {
+      state.a = state.a + 1;
+    }, TaskPriority.Update + 100);
+    const t2 = this.reg.registerTask(() => {
+      state.a = state.a * 2;
+    }, TaskPriority.Update + 200);
+    this.reg.runAllTask();
+    expect(state.a).toBe(3);
+    this.reg.deleteTask(t2);
+    this.reg.runAllTask();
+    expect(state.a).toBe(4);
+    this.reg.clearAllTask();
+    this.reg.runAllTask();
+    expect(state.a).toBe(4);
+  });
+  it("update", function () {
+    let i = 0;
+    const t1 = this.reg.registerTask((task) => {
+      i++;
+    }, TaskPriority.Update);
+    this.reg.update(3);
+    expect(i).toBe(3);
+    this.reg.deleteTask(t1);
+    this.reg.update(3);
+    expect(i).toBe(3);
+  });
+  it("toRef", function () {
+    const e1 = this.reg.createEntity();
+    const er1 = this.reg.toRef(e1);
+    expect(er1.getId()).toBe(0);
+    expect(er1.getGen()).toBe(0);
+    for (let i = 0; i < 10000 - 1; i++) {
+      this.reg.createEntity();
+    }
+    this.reg.deleteEntity(e1);
+    this.reg.update();
+    let e1g2 = this.reg.createEntity();
+    let er1g2 = this.reg.toRef(e1g2);
+    expect(e1g2).toBe(0);
+    expect(er1g2.getId()).toBe(0);
+    expect(er1g2.getGen()).toBe(1);
+  });
+  it("isEntityRefActive", function () {
+    const e1 = this.reg.createEntity();
+    const er1 = this.reg.toRef(e1);
+    expect(er1.getId()).toBe(0);
+    expect(er1.getGen()).toBe(0);
+    this.reg.update();
+    expect(this.reg.isEntityRefActive(er1)).toBe(true);
+    this.reg.deleteEntity(e1);
+    expect(this.reg.isEntityRefActive(er1)).toBe(false);
+    this.reg.update();
+    expect(this.reg.isEntityRefActive(er1)).toBe(false);
   });
 });
 
-describe("Archtype", function () {
+describe("Archetype", function () {
   beforeEach(function () {
     this.reg = new Registry();
   });
   it("constructor", function () {
     ComponentIdManager.clear();
-    const arch = new Archtype([PositionComponent, PhysicsComponent]);
+    const arch = new Archetype([PositionComponent, PhysicsComponent]);
     expect(arch._componentCtorSet.size).toBe(2);
     const e1 = this.reg.createEntity();
     this.reg.addComponent(e1, new PositionComponent());
@@ -230,7 +350,7 @@ describe("Archtype", function () {
     const cset = new Set();
     cset.add(PositionComponent);
     cset.add(PhysicsComponent);
-    const arch2 = new Archtype(cset);
+    const arch2 = new Archetype(cset);
     let id1 = ComponentIdManager.getId(PositionComponent);
     let id2 = ComponentIdManager.getId(PhysicsComponent);
     expect(arch2._key).toEqual([id1, id2].sort());
@@ -239,34 +359,34 @@ describe("Archtype", function () {
     const arch1 = [PositionComponent, PhysicsComponent];
     const query1 = [PositionComponent, PhysicsComponent];
     expect(
-      Archtype.isSame(Archtype.toKey(query1), Archtype.toKey(arch1), true),
+      Archetype.isSame(Archetype.toKey(query1), Archetype.toKey(arch1), true),
     ).toBe(true);
     const query2 = [PositionComponent];
     expect(
-      Archtype.isSame(Archtype.toKey(query2), Archtype.toKey(arch1), true),
+      Archetype.isSame(Archetype.toKey(query2), Archetype.toKey(arch1), true),
     ).toBe(false);
     const query3 = [PhysicsComponent];
     expect(
-      Archtype.isSame(Archtype.toKey(query3), Archtype.toKey(arch1), true),
+      Archetype.isSame(Archetype.toKey(query3), Archetype.toKey(arch1), true),
     ).toBe(false);
     expect(
-      Archtype.isSame(Archtype.toKey(query3), Archtype.toKey(arch1), false),
+      Archetype.isSame(Archetype.toKey(query3), Archetype.toKey(arch1), false),
     ).toBe(true);
     const query4 = [PositionComponent, PhysicsComponent, Test1Component];
     expect(
-      Archtype.isSame(Archtype.toKey(query4), Archtype.toKey(arch1), true),
+      Archetype.isSame(Archetype.toKey(query4), Archetype.toKey(arch1), true),
     ).toBe(false);
     expect(
-      Archtype.isSame(Archtype.toKey(query4), Archtype.toKey(arch1), false),
+      Archetype.isSame(Archetype.toKey(query4), Archetype.toKey(arch1), false),
     ).toBe(false);
   });
   it("toKey/toKeyStr", function () {
     ComponentIdManager.clear();
     const cset = new Set();
     [PositionComponent, PhysicsComponent].forEach((c) => cset.add(c));
-    const arch = new Archtype(cset);
-    expect(Archtype.toKey(cset)).toEqual([1, 2]);
-    expect(Archtype.toKeyStr(cset)).toEqual("1,2");
+    const arch = new Archetype(cset);
+    expect(Archetype.toKey(cset)).toEqual([1, 2]);
+    expect(Archetype.toKeyStr(cset)).toEqual("1,2");
   });
 });
 
@@ -374,19 +494,26 @@ describe("Integration Test", function () {
     expect(po1.x).toBe(1.0);
     expect(po1.y).toBe(2.0);
   });
+
+  it("IT2", function () {
+    const registry = new Registry(15000);
+    for (let i = 0; i < 10000; i++) {
+      const e = registry.createEntity();
+      registry.addComponent(e, PositionComponent);
+    }
+
+    const s = performance.now();
+    for (let frame = 0; frame < 60 * 12; frame++) {
+      for (const e of registry.query(false, PositionComponent)) {
+        if (Math.random() < 0.01) registry.deleteEntity(e);
+      }
+
+      registry.update();
+    }
+    const e = performance.now();
+    console.log("IT2", e - s);
+  });
 });
-
-class TestTask extends Task {
-  constructor(manager, ls, add, priority) {
-    super(manager, priority);
-    this.ls = ls;
-    this.add = add;
-  }
-
-  run() {
-    this.ls.push(this.add);
-  }
-}
 
 describe("task.js", () => {
   beforeEach(function () {

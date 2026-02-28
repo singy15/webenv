@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style inline="/app/style.css"></style>
+  </head>
+  <body style="display:flex; flex-direction:row;">
+    <canvas
+      id="canvas"
+      width="500"
+      height="500"
+      style="display:flex; border:solid 1px #888"
+      tabindex="999"
+    ></canvas>
+    <canvas
+      id="canvasSub"
+      width="500"
+      height="500"
+      style="display:none; border-right:solid 1px #888; border-top:solid 1px #888; border-bottom:solid 1px #888"
+      tabindex="999"
+    ></canvas>
+    <canvas
+      id="canvasOff"
+      width="500"
+      height="500"
+      style="display:none;"
+      tabindex="999"
+    ></canvas>
+    <script debug></script>
+    <script type="module" crossorigin inline="/app/main.js"></script>
+  </body>
+</html>

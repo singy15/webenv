@@ -415,6 +415,10 @@ class ArraySparseSet {
     return this._data[this._sparse[id]];
   }
 
+  getUnsafe(id) {
+    return this._data[this._sparse[id]];
+  }
+
   getOrNull(id) {
     const idx = this._sparse[id];
     return idx >= 0 ? this._data[idx] : null;
@@ -552,9 +556,10 @@ class CommandBuffer {
     const cmd = {
       type: "createEntity",
       components,
-      callback: null,
+      callbacks: [],
       after: (fn) => {
-        cmd.callback = fn;
+        cmd.callbacks.push(fn);
+        return cmd;
       },
     };
     this._addCommand(cmd);
@@ -566,9 +571,10 @@ class CommandBuffer {
       type: "removeComponent",
       entity,
       componentCtors,
-      callback: null,
+      callbacks: [],
       after: (fn) => {
-        cmd.callback = fn;
+        cmd.callbacks.push(fn);
+        return cmd;
       },
     };
     this._addCommand(cmd);
@@ -579,9 +585,10 @@ class CommandBuffer {
     const cmd = {
       type: "deleteEntity",
       entity,
-      callback: null,
+      callbacks: [],
       after: (fn) => {
-        cmd.callback = fn;
+        cmd.callbacks.push(fn);
+        return cmd;
       },
     };
     this._addCommand(cmd);
@@ -598,17 +605,29 @@ class CommandBuffer {
         case "createEntity":
           const e = registry.createEntity();
           registry.addComponent(e, ...cmd.components);
-          if (cmd.callback) cmd.callback(e);
+          if (cmd.callbacks.length > 0) {
+            for (const callback of cmd.callbacks) {
+              callback(e, registry);
+            }
+          }
           break;
 
         case "removeComponent":
           registry.removeComponent(cmd.entity, ...cmd.componentCtors);
-          if (cmd.callback) cmd.callback(cmd.entity);
+          if (cmd.callbacks.length > 0) {
+            for (const callback of cmd.callbacks) {
+              callback(cmd.entity, registry);
+            }
+          }
           break;
 
         case "deleteEntity":
           registry.deleteEntity(cmd.entity);
-          if (cmd.callback) cmd.callback(cmd.entity);
+          if (cmd.callbacks.length > 0) {
+            for (const callback of cmd.callbacks) {
+              callback(cmd.entity, registry);
+            }
+          }
           break;
       }
     }
@@ -646,7 +665,7 @@ class Registry {
     this._commandBuffer = new CommandBuffer();
   }
 
-  createEntity() {
+  createEntity(...components) {
     let entityId;
     if (this._currentEntityId >= this._maxEntityCount) {
       if (this._entityFreelist.length === 0) {
@@ -658,6 +677,11 @@ class Registry {
     }
     this._entityState[entityId] = EntityState.Active;
     this._entityToCompCtorSetMap[entityId].clear();
+
+    if (components) {
+      this.addComponent(entityId, ...components);
+    }
+
     return entityId;
   }
 
@@ -665,15 +689,20 @@ class Registry {
     return this._commandBuffer.createEntity(...components);
   }
 
+  _getComponentStore(componentCtor) {
+    let store = this._compCtorToCompStoreMap.get(componentCtor);
+    if (!store) {
+      store = new ArraySparseSet(this._maxEntityCount);
+      this._compCtorToCompStoreMap.set(componentCtor, store);
+    }
+    return store;
+  }
+
   addComponent(entity, ...components) {
     //// add components
     for (let component of components) {
       const ctor = component.constructor;
-      let store = this._compCtorToCompStoreMap.get(ctor);
-      if (!store) {
-        store = new ArraySparseSet(this._maxEntityCount);
-        this._compCtorToCompStoreMap.set(ctor, store);
-      }
+      let store = this._getComponentStore(ctor);
       if (store.has(entity))
         throw new Error(`Entity [${entity} already has ${ctor.name}]`);
       store.set(entity, component);
@@ -734,7 +763,9 @@ class Registry {
   }
 
   getComponent(entity, componentCtor) {
-    return this._compCtorToCompStoreMap.get(componentCtor)?.getOrNull(entity) ?? null;
+    return (
+      this._compCtorToCompStoreMap.get(componentCtor)?.getOrNull(entity) ?? null
+    );
   }
 
   _destroyEntity(entity) {
@@ -837,16 +868,36 @@ class Registry {
     return matchedArchetypes;
   }
 
-  *query(exact, ...requiredComponentCtors) {
-    for (const archetype of this._findArchetype(
-      requiredComponentCtors,
-      exact,
-    )) {
-      for (const entity of archetype.entities()) {
-        if (this._entityState[entity] !== EntityState.Active) continue;
-        yield entity;
+  query(exact, ...requiredComponentCtors) {
+    const _exact = exact;
+    const _requiredComponentCtors = requiredComponentCtors;
+    const self = this;
+    const stores = new Map();
+    const requiredSet = new Set(_requiredComponentCtors);
+    const get = (componentCtor, id) => {
+      let store = stores.get(componentCtor);
+      if (!store) {
+        if (!requiredSet.has(componentCtor))
+          throw new Error(`Component [${componentCtor.name}] is not in query`);
+        store = self._getComponentStore(componentCtor);
+        stores.set(componentCtor, store);
       }
-    }
+      return store.getUnsafe(id);
+    };
+    return {
+      *[Symbol.iterator]() {
+        for (const archetype of self._findArchetype(
+          _requiredComponentCtors,
+          _exact,
+        )) {
+          for (const entity of archetype.entities()) {
+            if (self._entityState[entity] !== EntityState.Active) continue;
+            yield entity;
+          }
+        }
+      },
+      get,
+    };
   }
 
   queryEach(exact, fn, ...requiredComponentCtors) {

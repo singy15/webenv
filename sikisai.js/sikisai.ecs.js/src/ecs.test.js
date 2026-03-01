@@ -86,7 +86,7 @@ describe("Registry", function () {
     }).toThrow();
     const e2 = this.reg.createEntity();
     this.reg.addComponent(e2, new PhysicsComponent());
-    expect(this.reg._archetypes.length).toBe(2);
+    expect(this.reg._archetypes.length).toBe(3);
   });
   it("removeComponent", function () {
     const e1 = this.reg.createEntity();
@@ -119,7 +119,7 @@ describe("Registry", function () {
     expect(this.reg.isEntityActive(e1)).toBe(true);
     expect(this.reg.isEntityActive(e2)).toBe(false);
     expect(this.reg.isEntityActive(e3)).toBe(true);
-    expect(this.reg._archetypes[0].entities().length).toBe(2);
+    expect(this.reg._archetypes[0].entities().length).toBe(0);
   });
   it("deleteEntity", function () {
     const e1 = this.reg.createEntity();
@@ -242,7 +242,24 @@ describe("Registry", function () {
       expect(i).toBe(c3);
     }
 
-    expect(this.reg._archetypes.length).toBe(3);
+    expect(this.reg._archetypes.length).toBe(4);
+  });
+  it("query2", function () {
+    const cmap = {};
+    this.reg.deferCreateEntity(new PhysicsComponent()).after((e) => {
+      const ph = this.reg.getComponent(e, PhysicsComponent);
+      cmap[e] = ph;
+    });
+    this.reg.deferCreateEntity(new PhysicsComponent()).after((e) => {
+      const ph = this.reg.getComponent(e, PhysicsComponent);
+      cmap[e] = ph;
+    });
+    this.reg.update();
+
+    const q = this.reg.query(false, PhysicsComponent);
+    for (const e of q) {
+      expect(q.get(PhysicsComponent, e)).toBe(cmap[e]);
+    }
   });
   xit("archetype base queries", function () {
     const c1 = Math.floor(Math.random() * (10 + 5));

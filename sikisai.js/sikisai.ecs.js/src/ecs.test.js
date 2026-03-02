@@ -258,7 +258,74 @@ describe("Registry", function () {
 
     const q = this.reg.query(false, PhysicsComponent);
     for (const e of q) {
-      expect(q.get(PhysicsComponent, e)).toBe(cmap[e]);
+      expect(e.get(PhysicsComponent)).toBe(cmap[e.id]);
+      expect(q.getById(PhysicsComponent, e.id)).toBe(cmap[e.id]);
+      expect(q.getById(PhysicsComponent, e.id)).toBe(cmap[e.id]);
+      expect(() => {
+        e.get(PositionComponent);
+      }).toThrow();
+    }
+
+    let i = 0;
+    for (const q1 of this.reg.query(false, PhysicsComponent)) {
+      for (const q2 of this.reg.query(false, PhysicsComponent)) {
+        if (i === 0) {
+          expect(q1.id).toBe(0);
+          expect(q2.id).toBe(0);
+          expect(q1.get(PhysicsComponent)).toBe(q2.get(PhysicsComponent));
+        }
+        if (i === 1) {
+          expect(q1.id).toBe(0);
+          expect(q2.id).toBe(1);
+          expect(q1.get(PhysicsComponent)).not.toBe(q2.get(PhysicsComponent));
+        }
+        if (i === 2) {
+          expect(q1.id).toBe(1);
+          expect(q2.id).toBe(0);
+          expect(q1.get(PhysicsComponent)).not.toBe(q2.get(PhysicsComponent));
+        }
+        if (i === 3) {
+          expect(q1.id).toBe(1);
+          expect(q2.id).toBe(1);
+          expect(q1.get(PhysicsComponent)).toBe(q2.get(PhysicsComponent));
+        }
+
+        i++;
+      }
+    }
+  });
+  it("query3", function () {
+    const cmap = {};
+    const cmap2 = {};
+    this.reg
+      .deferCreateEntity(new PhysicsComponent(), new PositionComponent())
+      .after((e) => {
+        const ph = this.reg.getComponent(e, PhysicsComponent);
+        cmap[e] = ph;
+        const po = this.reg.getComponent(e, PositionComponent);
+        cmap2[e] = po;
+      });
+    this.reg
+      .deferCreateEntity(new PhysicsComponent(), new PositionComponent())
+      .after((e) => {
+        const ph = this.reg.getComponent(e, PhysicsComponent);
+        cmap[e] = ph;
+        const po = this.reg.getComponent(e, PositionComponent);
+        cmap2[e] = po;
+      });
+    this.reg.update();
+
+    for (const q of this.reg.query(
+      false,
+      PhysicsComponent,
+      PositionComponent,
+    )) {
+      const [physics, position] = q.array();
+      expect(physics).toBe(cmap[q.id]);
+      expect(position).toBe(cmap2[q.id]);
+      const [physics2, position2] = q.arrayBy(PhysicsComponent, PositionComponent);
+      expect(physics2).toBe(cmap[q.id]);
+      expect(position2).toBe(cmap2[q.id]);
     }
   });
   xit("archetype base queries", function () {
@@ -550,7 +617,7 @@ describe("Integration Test", function () {
     const s = performance.now();
     for (let frame = 0; frame < 60 * 12; frame++) {
       for (const e of registry.query(false, PositionComponent)) {
-        if (Math.random() < 0.01) registry.deleteEntity(e);
+        if (Math.random() < 0.01) registry.deleteEntity(e.id);
       }
 
       registry.update();

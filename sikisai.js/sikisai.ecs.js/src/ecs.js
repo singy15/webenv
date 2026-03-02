@@ -874,7 +874,7 @@ class Registry {
     const self = this;
     const stores = new Map();
     const requiredSet = new Set(_requiredComponentCtors);
-    const get = (componentCtor, id) => {
+    const getc = (componentCtor, id) => {
       let store = stores.get(componentCtor);
       if (!store) {
         if (!requiredSet.has(componentCtor))
@@ -886,17 +886,30 @@ class Registry {
     };
     return {
       *[Symbol.iterator]() {
+        const view = {
+          id: null,
+          get(ctor) {
+            return getc(ctor, view.id);
+          },
+          arrayBy(...ctors) {
+            return ctors.map((c) => getc(c, view.id));
+          },
+          array() {
+            return _requiredComponentCtors.map((c) => getc(c, view.id));
+          },
+        };
         for (const archetype of self._findArchetype(
           _requiredComponentCtors,
           _exact,
         )) {
           for (const entity of archetype.entities()) {
             if (self._entityState[entity] !== EntityState.Active) continue;
-            yield entity;
+            view.id = entity;
+            yield view;
           }
         }
       },
-      get,
+      getById: getc,
     };
   }
 

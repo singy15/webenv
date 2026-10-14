@@ -317,6 +317,16 @@ function createMonacoEditor(
     });
   }, 1000);
 
+  setTimeout(() => {
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      diagnosticCodesToIgnore: [2307, 2792],
+    });
+
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      diagnosticCodesToIgnore: [2307, 2792],
+    });
+  }, 1000);
+
   return editor;
 }
 
@@ -340,6 +350,7 @@ function languageByExtension(extension) {
     vue: "html",
     css: "css",
     txt: "txt",
+    ts: "typescript",
   };
   return langs[extension];
 }
@@ -1208,7 +1219,10 @@ async function runDebug() {
   let file = await appApi.getFile(selectedItem.value.handle);
   await set(`webenv/startup`, file.path);
   storageUtil.setStorage("reload", false);
-  window.open(location.href + "debug" + `?startup=${encodeURIComponent(file.path)}`, "_blank");
+  window.open(
+    location.href + "debug" + `?startup=${encodeURIComponent(file.path)}`,
+    "_blank",
+  );
 }
 
 async function setBinary(oid, blob) {
@@ -1664,7 +1678,10 @@ function changeClearConsoleOnLoad() {
         >
           <div style="margin:1.5em">
             <p>Applications</p>
-            <p>*** Left click to Open, Right click to Rename or Delete (Enter blank name).</p>
+            <p>
+              *** Left click to Open, Right click to Rename or Delete (Enter
+              blank name).
+            </p>
             <ul>
               <template v-for="session in sessionList">
                 <li>

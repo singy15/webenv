@@ -80,7 +80,10 @@ async function build(appOid, startup = null) {
     }
 
     let patScript = /@@@webenv.script\((.*)\)/;
-    if (file.path.endsWith(".js") && file.text.match(patScript)) {
+    if (
+      (file.path.endsWith(".js") || file.path.endsWith(".ts")) &&
+      file.text.match(patScript)
+    ) {
       let match = file.text.match(patScript);
       buildScripts.push({ key: match[1], path: file.path });
     }
@@ -92,7 +95,10 @@ async function build(appOid, startup = null) {
     }
 
     let impat = /@@@webenv.importmap\((.*)\)/;
-    if (file.path.endsWith(".js") && file.text.match(impat)) {
+    if (
+      (file.path.endsWith(".js") || file.path.endsWith(".ts")) &&
+      file.text.match(impat)
+    ) {
       let match = file.text.match(impat);
       importMapping[match[1]] = file.path;
     }
@@ -212,11 +218,21 @@ async function build(appOid, startup = null) {
             resolveDir: ".",
           };
         } else {
-          return {
-            contents,
-            loader: "js",
-            resolveDir: ".",
-          };
+          if (args.path.endsWith(".js")) {
+            return {
+              contents,
+              loader: "js",
+              resolveDir: ".",
+            };
+          } else if (args.path.endsWith(".ts")) {
+            return {
+              contents,
+              loader: "ts",
+              resolveDir: ".",
+            };
+          } else {
+            throw new Error("unknown type");
+          }
         }
       });
 
@@ -476,7 +492,7 @@ async function build(appOid, startup = null) {
 
     console.log(`building [${e.path}]`);
 
-    let result = (await context.rebuild());
+    let result = await context.rebuild();
     console.log(result);
 
     let js = result.outputFiles[0].text;

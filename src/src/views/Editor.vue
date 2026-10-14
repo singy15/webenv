@@ -128,24 +128,6 @@ console.log(await devidb.get("test"));
   await getSessionList();
 }
 
-function deleteTabByHandle(handle) {
-  let idx = null;
-  tabs.tabitems.forEach((t, i) => {
-    if (t.oid === handle) idx = i;
-  });
-  if (idx == null) return;
-  tabs.tabitems = tabs.tabitems.filter((t) => t.oid !== handle);
-  nextTick(() => {
-    // tabitem.editor.getModel().dispose();
-    // tabitem.editor.dispose();
-    if (idx > 0) {
-      tabs.selected = tabs.tabitems[idx - 1];
-    } else if (tabs.tabitems.length > 0) {
-      tabs.selected = tabs.tabitems[0];
-    }
-  });
-}
-
 async function onCreateNewFile() {
   if (!selectedItem.value) return;
 
@@ -319,11 +301,11 @@ function createMonacoEditor(
 
   setTimeout(() => {
     monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-      diagnosticCodesToIgnore: [2307, 2792],
+      diagnosticCodesToIgnore: [2307, 2792, 5097],
     });
 
     monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      diagnosticCodesToIgnore: [2307, 2792],
+      diagnosticCodesToIgnore: [2307, 2792, 5097],
     });
   }, 1000);
 
@@ -653,7 +635,42 @@ function setSaveTimeout(tabitem, force = false) {
   // set save timeout
   tabitem.timeoutSave = setTimeout(async () => {
     let file = await appApi.getFile(tabitem.oid);
-    file.text = tabitem.editor.getValue();
+    // file.text = tabitem.editor.getValue();
+    file.text = editor.getModel().getValue();
+    await appApi.setFile(file);
+
+    // clear timeout state
+    tabitem.timeoutSave = null;
+
+    // set modified state
+    let ti = tabs.tabitems.filter((t) => t.oid === tabitem.oid)[0];
+    if (ti) {
+      ti.modified = false;
+    }
+
+    // build
+    // await buildForDebug(currentApp.value);
+
+    // update timestamp
+    await updateTimestamp();
+  }, 2000);
+}
+
+function setSaveTimeoutEx(_tabitem, _model, force = false) {
+  let tabitem = _tabitem;
+  let model = _model;
+
+  if (!autosaveEnabled.value && !force) return;
+
+  if (tabitem.timeoutSave) {
+    clearTimeout(tabitem.timeoutSave);
+  }
+
+  // set save timeout
+  tabitem.timeoutSave = setTimeout(async () => {
+    let file = await appApi.getFile(tabitem.oid);
+    // file.text = tabitem.editor.getValue();
+    file.text = model.getValue();
     await appApi.setFile(file);
 
     // clear timeout state
@@ -766,10 +783,14 @@ async function addTab(item) {
 //   });
 // }
 
+let editor = null;
+let models = {};
+
 async function openFile(item) {
   let existing = tabs.tabitems.filter((t) => t.oid == item.handle);
   if (existing.length > 0) {
-    tabs.selected = existing[0];
+    // tabs.selected = existing[0];
+    selectTab(existing[0]);
     return;
   }
 
@@ -778,10 +799,15 @@ async function openFile(item) {
     entry: item,
     preview: false,
     modified: false,
+    // editor: null,
+    // model: null,
+    path: null,
+    uri: null,
   };
 
   tabs.tabitems.push(tabitem);
-  tabs.selected = tabitem;
+  // tabs.selected = tabitem;
+  selectTab(tabitem);
   let ti = tabs.tabitems[tabs.tabitems.indexOf(tabitem)];
 
   nextTick(async () => {
@@ -795,46 +821,131 @@ async function openFile(item) {
       language = languageByExtension(ext.slice(-1)[0]);
     }
 
-    let editor = createMonacoEditor(
-      /*editorMonaco.value[tabs.tabitems.indexOf(tabitem)], */
-      document.querySelector(`#editor-${ti.oid}`),
-      (ed, val) => {
-        ti.modified = true;
-        setSaveTimeout(tabitem);
-      },
-      language,
-    );
-    tabitem.editor = editor;
+    if (editor == null) {
+      editor = createMonacoEditor(
+        /*editorMonaco.value[tabs.tabitems.indexOf(tabitem)], */
+        document.querySelector(`#editor`),
+        (ed, val) => {
+          // ti.modified = true;
+          // setSaveTimeout(tabitem);
+        },
+        //language,
+      );
+    }
+
+    // tabitem.editor = editor;
 
     let file = await get(`webenv/files/${item.handle}`);
-    editor.setValue(file.text);
 
-    // add listener
-    editor.getModel().onDidChangeContent((event) => {
-      ((ed, val) => {
-        ti.modified = true;
-        setSaveTimeout(tabitem);
-      })(editor, event);
-    });
+    function recurpath(item, root, path = item.name) {
+      const delim = "/";
+      if (item.parent && item.parent.name !== root) {
+        return recurpath(item.parent, root, item.parent.name + delim + path);
+      } else {
+        return delim + path;
+      }
+    }
+
+    const path = recurpath(item, "workspace");
+    tabitem.path = path;
+
+    const uri = monaco.Uri.parse("file://" + path);
+    tabitem.uri = uri;
+
+    let model = models[path];
+    if (!model) {
+      model = monaco.editor.createModel(file.text, language, uri);
+
+      // add listener
+      model.onDidChangeContent((event) => {
+        ((ed, val) => {
+          ti.modified = true;
+          // setSaveTimeout(tabitem);
+          setSaveTimeoutEx(tabitem, model);
+        })(editor, event);
+      });
+
+      models[path] = model;
+    }
+    //tabitem.model = model;
+
+    // editor.setValue(file.text);
+    editor.setModel(model);
   });
 }
 
-function clickTab(tabitem) {
+function selectTab(tabitem) {
   tabs.selected = tabitem;
+  if (editor) {
+    editor.setModel(models[tabitem.path]);
+  }
 }
 
-function deleteTab(tabitem) {
-  let idx = tabs.tabitems.indexOf(tabitem);
-  tabs.tabitems = tabs.tabitems.filter((t) => t != tabitem);
+function clickTab(tabitem) {
+  selectTab(tabitem);
+}
+
+function resetMonaco() {
+  if (editor) {
+    editor.setModel(null);
+    editor.dispose();
+    editor = null;
+  }
+
+  for (const model of monaco.editor.getModels()) {
+    model.dispose();
+  }
+  models = {};
+
+  // tabs.tabitems.forEach((tab) => {
+  //   tab.editor = null;
+  //   tab.model = null;
+  //   tab.uri = null;
+  // });
+
+  // tabs.tabitems = [];
+  // tabs.selected = null;
+}
+
+function afterDeleteTab(idx) {
   nextTick(() => {
     // tabitem.editor.getModel().dispose();
     // tabitem.editor.dispose();
     if (idx > 0) {
-      tabs.selected = tabs.tabitems[idx - 1];
+      //tabs.selected = tabs.tabitems[idx - 1];
+      selectTab(tabs.tabitems[idx - 1]);
     } else if (tabs.tabitems.length > 0) {
-      tabs.selected = tabs.tabitems[0];
+      // tabs.selected = tabs.tabitems[0];
+      selectTab(tabs.tabitems[0]);
+    } else {
+      // no tabs
+      resetMonaco();
     }
   });
+}
+
+function deleteTab(tabitem) {
+  let idx = null;
+  idx = tabs.tabitems.indexOf(tabitem);
+  if (idx == null) return;
+
+  // tabs.tabitems = tabs.tabitems.filter((t) => t != tabitem);
+  tabs.tabitems.splice(idx, 1);
+
+  afterDeleteTab(idx);
+}
+
+function deleteTabByHandle(handle) {
+  let idx = null;
+  tabs.tabitems.forEach((t, i) => {
+    if (t.oid === handle) idx = i;
+  });
+  if (idx == null) return;
+
+  // tabs.tabitems = tabs.tabitems.filter((t) => t.oid !== handle);
+  tabs.tabitems.splice(idx, 1);
+
+  afterDeleteTab(idx);
 }
 
 const showConfig = ref(false);
@@ -1658,15 +1769,13 @@ function changeClearConsoleOnLoad() {
         <div class="tabitem br bb bc-gray">vite.svg</div>
         -->
       </div>
-      <template v-for="tabitem in tabs.tabitems" :key="tabitem.oid">
+      <template v-if="tabs.tabitems.length !== 0">
         <div
-          :id="`editor-${tabitem.oid}`"
+          :id="`editor`"
           :style="{
             width: `100%`,
             height: `calc(100% - 3em)`,
-            display: tabitem == tabs.selected ? `inherit` : `none`,
           }"
-          @keydown.ctrl.s.prevent.stop="setSaveTimeout(tabitem, true)"
         ></div>
       </template>
       <template v-if="tabs.tabitems.length === 0">

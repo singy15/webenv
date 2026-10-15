@@ -71,6 +71,18 @@ async function removeFile(appOid, file) {
   await delFile(file);
 }
 
+function languageByExtension(extension) {
+  let langs = {
+    js: "javascript",
+    html: "html",
+    vue: "html",
+    css: "css",
+    txt: "txt",
+    ts: "typescript",
+  };
+  return langs[extension];
+}
+
 export default {
   createApp,
   createFile,
@@ -83,4 +95,5 @@ export default {
   setFile,
   addFile,
   removeFile,
+  languageByExtension,
 };

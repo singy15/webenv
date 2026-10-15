@@ -17,10 +17,13 @@ import bundler from "../bundler.js";
 import { initialize, build } from "../lib/esbuild-wasm.browser.min.js";
 import moment from "moment";
 import appApi from "../app.js";
+import ModelRepository from "../model-repository.js";
 
 const fontSize = ref(storageUtil.getStorage("fontSize", 13));
 
 const globalMessage = ref("");
+
+const modelRepository = new ModelRepository();
 
 function setGlobalMessage(msg) {
   globalMessage.value = msg;
@@ -324,18 +327,6 @@ onMounted(() => {
   */
   // openLastDirectory();
 });
-
-function languageByExtension(extension) {
-  let langs = {
-    js: "javascript",
-    html: "html",
-    vue: "html",
-    css: "css",
-    txt: "txt",
-    ts: "typescript",
-  };
-  return langs[extension];
-}
 
 const count = ref(0);
 
@@ -708,11 +699,11 @@ async function addTab(item) {
   reader.addEventListener("load", () => {
     // editor.text = reader.result;
     let ext = item.name.split(".");
-    if (ext.length > 0 && languageByExtension(ext.slice(-1)[0])) {
+    if (ext.length > 0 && appApi.languageByExtension(ext.slice(-1)[0])) {
       var model = editorMonacoObj.getModel();
       monaco.editor.setModelLanguage(
         model,
-        languageByExtension(ext.slice(-1)[0]),
+        appApi.languageByExtension(ext.slice(-1)[0]),
       );
     }
     editorMonacoObj.setValue(reader.result);
@@ -752,10 +743,10 @@ async function addTab(item) {
 //
 //       let language = "text";
 //
-//       if (ext.length > 0 && languageByExtension(ext.slice(-1)[0])) {
+//       if (ext.length > 0 && appApi.languageByExtension(ext.slice(-1)[0])) {
 //         // var model = editor.getModel();
-//         // monaco.editor.setModelLanguage(model, languageByExtension(ext.slice(-1)[0]));
-//         language = languageByExtension(ext.slice(-1)[0]);
+//         // monaco.editor.setModelLanguage(model, appApi.languageByExtension(ext.slice(-1)[0]));
+//         language = appApi.languageByExtension(ext.slice(-1)[0]);
 //       }
 //
 //       let editor = createMonacoEditor(
@@ -784,13 +775,13 @@ async function addTab(item) {
 // }
 
 let editor = null;
-let models = {};
+let handlered = null;
 
 async function openFile(item) {
   let existing = tabs.tabitems.filter((t) => t.oid == item.handle);
   if (existing.length > 0) {
     // tabs.selected = existing[0];
-    selectTab(existing[0]);
+    await selectTab(existing[0]);
     return;
   }
 
@@ -801,13 +792,14 @@ async function openFile(item) {
     modified: false,
     // editor: null,
     // model: null,
+    autosaveHandler: null,
     path: null,
     uri: null,
   };
 
   tabs.tabitems.push(tabitem);
   // tabs.selected = tabitem;
-  selectTab(tabitem);
+  await selectTab(tabitem, false);
   let ti = tabs.tabitems[tabs.tabitems.indexOf(tabitem)];
 
   nextTick(async () => {
@@ -815,10 +807,10 @@ async function openFile(item) {
 
     let language = "text";
 
-    if (ext.length > 0 && languageByExtension(ext.slice(-1)[0])) {
+    if (ext.length > 0 && appApi.languageByExtension(ext.slice(-1)[0])) {
       // var model = editor.getModel();
-      // monaco.editor.setModelLanguage(model, languageByExtension(ext.slice(-1)[0]));
-      language = languageByExtension(ext.slice(-1)[0]);
+      // monaco.editor.setModelLanguage(model, appApi.languageByExtension(ext.slice(-1)[0]));
+      language = appApi.languageByExtension(ext.slice(-1)[0]);
     }
 
     if (editor == null) {
@@ -852,32 +844,49 @@ async function openFile(item) {
     const uri = monaco.Uri.parse("file://" + path);
     tabitem.uri = uri;
 
-    let model = models[path];
-    if (!model) {
-      model = monaco.editor.createModel(file.text, language, uri);
+    // let model = models[path];
+    let model = await modelRepository.requestModel(currentApp.value, path);
+    // if (!model) {
+    //   model = monaco.editor.createModel(file.text, language, uri);
 
-      // add listener
-      model.onDidChangeContent((event) => {
-        ((ed, val) => {
-          ti.modified = true;
-          // setSaveTimeout(tabitem);
-          setSaveTimeoutEx(tabitem, model);
-        })(editor, event);
-      });
+    //   // add listener
+    //   model.onDidChangeContent((event) => {
+    //     ((ed, val) => {
+    //       ti.modified = true;
+    //       // setSaveTimeout(tabitem);
+    //       setSaveTimeoutEx(tabitem, model);
+    //     })(editor, event);
+    //   });
 
-      models[path] = model;
-    }
-    //tabitem.model = model;
+    //   models[path] = model;
+    // }
+    // //tabitem.model = model;
+
+    // console.log("model loaded");
+
+    tabitem.autosaveHandler = model.onDidChangeContent((event) => {
+      ((ed, val) => {
+        ti.modified = true;
+        // setSaveTimeout(tabitem);
+        setSaveTimeoutEx(tabitem, model);
+      })(editor, event);
+    });
 
     // editor.setValue(file.text);
+    // console.log("model set", model);
     editor.setModel(model);
+    editor.layout();
   });
 }
 
-function selectTab(tabitem) {
+async function selectTab(tabitem, setModel = true) {
   tabs.selected = tabitem;
-  if (editor) {
-    editor.setModel(models[tabitem.path]);
+  if (editor && setModel) {
+    // editor.setModel(models[tabitem.path]);
+    // console.log("loading", tabitem, tabitem.path);
+    editor.setModel(
+      await modelRepository.requestModel(currentApp.value, tabitem.path),
+    );
   }
 }
 
@@ -895,7 +904,8 @@ function resetMonaco() {
   for (const model of monaco.editor.getModels()) {
     model.dispose();
   }
-  models = {};
+  // models = {};
+  modelRepository.reset();
 
   // tabs.tabitems.forEach((tab) => {
   //   tab.editor = null;
@@ -929,6 +939,14 @@ function deleteTab(tabitem) {
   idx = tabs.tabitems.indexOf(tabitem);
   if (idx == null) return;
 
+  if (tabitem.timeoutSave) {
+    alert("Modification not saved, please wait");
+    return;
+  }
+
+  tabitem.saveHandler?.dispose();
+  tabitem.saveHandler = null;
+
   // tabs.tabitems = tabs.tabitems.filter((t) => t != tabitem);
   tabs.tabitems.splice(idx, 1);
 
@@ -941,6 +959,15 @@ function deleteTabByHandle(handle) {
     if (t.oid === handle) idx = i;
   });
   if (idx == null) return;
+
+  let tabitem = tabs.tabitems[idx];
+
+  if (tabitem.timeoutSave) {
+    clearTimeout(tabitem.timeoutSave);
+  }
+
+  tabitem.saveHandler?.dispose();
+  tabitem.saveHandler = null;
 
   // tabs.tabitems = tabs.tabitems.filter((t) => t.oid !== handle);
   tabs.tabitems.splice(idx, 1);
@@ -1023,6 +1050,46 @@ async function openSession(session) {
 
   currentApp.value = session.oid;
   openDirectory();
+
+  // // no tabs
+  // resetMonaco();
+
+  //// create models for *.d.ts to load type declarations.
+  loadTypeDeclarationsForTypeScript(session.oid);
+}
+
+async function loadTypeDeclarationsForTypeScript(appOid) {
+  const files = (await appApi.getAppByOid(appOid)).files;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = await appApi.getFile(files[i]);
+    const path = file.path;
+
+    if (path.endsWith(".d.ts") /*&& !models[path]*/) {
+      // const uri = monaco.Uri.parse("file://" + path);
+
+      // let language = "text";
+      // let ext = path.split(".");
+      // if (ext.length > 0 && appApi.languageByExtension(ext.slice(-1)[0])) {
+      //   language = appApi.languageByExtension(ext.slice(-1)[0]);
+      // }
+
+      // const model = monaco.editor.createModel(file.text, language, uri);
+
+      // model.onDidChangeContent((event) => {
+      //   ((ed, val) => {
+      //     // XXX: setSaveTimeoutEx does not non-tabbed model, thus modifying *.d.ts file is not supported for now.
+      //     //      but, if we can set/reset onDidChangeContext handler on opening file, no need for setting up handler on create model.
+      //     // ti.modified = true;
+      //     // setSaveTimeoutEx(tabitem, model);
+      //   })(editor, event);
+      // });
+
+      // models[path] = model;
+
+      await modelRepository.requestModel(currentApp.value, path);
+    }
+  }
 }
 
 async function modifyApplication(app) {

@@ -303,12 +303,21 @@ function createMonacoEditor(
   }, 1000);
 
   setTimeout(() => {
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+      // target: monaco.languages.typescript.ScriptTarget.ESNext,
+      // module: monaco.languages.typescript.ModuleKind.ESNext,
+      // moduleResolution:
+      //   monaco.languages.typescript.ModuleResolutionKind.Bundler,
+      allowImportingTsExtensions: true,
+      // noEmit: true,
+    });
+
     monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-      diagnosticCodesToIgnore: [2307, 2792, 5097],
+      // diagnosticCodesToIgnore: [2307, 2792, 5097],
     });
 
     monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      diagnosticCodesToIgnore: [2307, 2792, 5097],
+      // diagnosticCodesToIgnore: [2307, 2792, 5097],
     });
   }, 1000);
 
@@ -884,10 +893,43 @@ async function selectTab(tabitem, setModel = true) {
   if (editor && setModel) {
     // editor.setModel(models[tabitem.path]);
     // console.log("loading", tabitem, tabitem.path);
-    editor.setModel(
-      await modelRepository.requestModel(currentApp.value, tabitem.path),
+    const model = await modelRepository.requestModel(
+      currentApp.value,
+      tabitem.path,
     );
+    editor.setModel(model);
+    revalidateModel(model);
   }
+}
+
+async function revalidateModel(model) {
+  if (!model || model.isDisposed()) return;
+
+  if (model.getLanguageId() !== "typescript") return;
+
+  const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
+  const worker = await getWorker(model.uri);
+  const diagnostics = (
+    await Promise.all([
+      worker.getSyntacticDiagnostics(model.uri.toString()),
+      worker.getSemanticDiagnostics(model.uri.toString()),
+    ])
+  ).reduce((a, it) => a.concat(it));
+
+  const markers = diagnostics.map((d) => {
+    const start = model.getPositionAt(d.start);
+    const end = model.getPositionAt(d.start + d.length);
+    return {
+      severity: monaco.MarkerSeverity.Error,
+      startLineNumber: start.lineNumber,
+      startColumn: start.column,
+      endLineNumber: end.lineNumber,
+      endColumn: end.column,
+      message: d.messageText,
+    };
+  });
+  const owner = model.getLanguageId();
+  monaco.editor.setModelMarkers(model, owner, markers);
 }
 
 function clickTab(tabitem) {

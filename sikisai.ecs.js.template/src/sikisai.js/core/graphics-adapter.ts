@@ -1,4 +1,24 @@
-class GraphicsAdapter {
+
+export type GraphicsContextId = string & { readonly __brand: "GraphicsContextId" };
+
+export type CameraPosition = {
+  x: number,
+  y: number
+}
+
+export type GraphicsContext = {
+  context: any,
+  cameraEnabled: boolean,
+  cameraPos: CameraPosition,
+  cameraPosSave: CameraPosition,
+}
+
+export default abstract class GraphicsAdapter {
+  originContextId: GraphicsContextId;
+  currentContextId: GraphicsContextId;
+  currentContext: GraphicsContext;
+  contexts: { [key: GraphicsContextId]: GraphicsContext };
+
   constructor() {
     this.originContextId = null;
     this.currentContextId = null;
@@ -6,8 +26,9 @@ class GraphicsAdapter {
     this.contexts = {};
   }
 
-  addContext(id, context) {
-    this.contexts[id] = {
+  addContext(id: string, context: any) {
+    const cid = id as GraphicsContextId;
+    this.contexts[cid] = {
       context: context,
       cameraEnabled: true,
       cameraPos: { x: 0.0, y: 0.0 },
@@ -15,23 +36,26 @@ class GraphicsAdapter {
     };
   }
 
-  changeContext(id) {
-    this.currentContextId = id;
-    this.currentContext = this.contexts[id];
+  changeContext(id: string): void {
+    const cid = id as GraphicsContextId;
+    this.currentContextId = cid;
+    this.currentContext = this.contexts[cid];
   }
 
-  getContextById(id) {
-    return this.contexts[id];
+  getContextById(id: string): GraphicsContext {
+    const cid = id as GraphicsContextId;
+    return this.contexts[cid];
   }
 
-  getCurrentContextId() {
+  getCurrentContextId(): GraphicsContextId {
     return this.currentContextId;
   }
 
-  camera(id = null) {
+  camera(id = null): CameraPosition {
+    let cid = id as GraphicsContextId;
     let context = this.currentContext;
-    if (id != null) {
-      context = this.contexts[id];
+    if (cid != null) {
+      context = this.contexts[cid];
     }
     return context.cameraPos;
   }
@@ -94,34 +118,31 @@ class GraphicsAdapter {
     this.swapCamera();
   }
 
-  withContext(id, fn) {
+  withContext(id: string, fn: Function) {
+    let cid = id as GraphicsContextId;
     if (this.originContextId != null)
       throw new Error("cannot use withContext in withContext");
 
     this.originContextId = this.currentContextId;
-    this.changeContext(id);
+    this.changeContext(cid);
     fn();
     this.changeContext(this.originContextId);
     this.originContextId = null;
   }
 
-  line(x1, y1, x2, y2, opts = {}) {}
+  abstract line(x1, y1, x2, y2, opts: object): void;
 
-  rect(x1, y1, x2, y2, opts = {}) {}
+  abstract rect(x1, y1, x2, y2, opts: object): void;
 
-  createSprite(opts = {}) {}
+  abstract createSprite(opts: object);
 
-  draw(sprite, x, y, opts = {}) {}
+  abstract draw(sprite, x, y, opts: object);
 
-  text(str, x, y, opts = {}) {}
+  abstract text(str, x, y, opts: object);
 
-  arc(x, y, radius, opts = { startAngle: 0.0, endAngle: Math.PI * 2.0 }) {}
+  abstract arc(x, y, radius, opts: object);
 
-  width() {}
+  abstract width(): number;
 
-  height() {}
+  abstract height(): number;
 }
-
-export default {
-  GraphicsAdapter: GraphicsAdapter,
-};

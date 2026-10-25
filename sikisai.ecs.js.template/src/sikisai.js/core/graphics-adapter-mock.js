@@ -1,7 +1,7 @@
-import graphicsAdapter from "./graphics-adapter.js";
+import GraphicsAdapter from "./graphics-adapter.ts";
 import spriteCanvas from "./sprite-canvas.js";
 
-class GraphicsAdapterMock extends graphicsAdapter.GraphicsAdapter {
+class GraphicsAdapterMock extends GraphicsAdapter {
   constructor() {
     super();
     // this.canvas = canvas;
@@ -153,7 +153,7 @@ class GraphicsAdapterMock extends graphicsAdapter.GraphicsAdapter {
     return 768;
   }
 
- createSpriteByAsyncGenerator(asyncfn, opts = {}) {
+  createSpriteByAsyncGenerator(asyncfn, opts = {}) {
     let img = new Image();
     img.width = opts.width ?? 0;
     img.height = opts.height ?? 0;

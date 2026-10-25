@@ -2,8 +2,8 @@ console.log("it works!");
 await devidb.set("test", "ok");
 console.log(await devidb.get("test"));
 
-import fpsController from "/sikisai.js/core/fps-controller.js";
-import graphicsAdapterCanvas from "/sikisai.js/core/graphics-adapter-canvas.js";
+import FPSController from "/sikisai.js/core/fps-controller.ts";
+import GraphicsAdapterCanvas from "/sikisai.js/core/graphics-adapter-canvas.ts";
 import interfaceAdapterCanvas from "/sikisai.js/core/interface-adapter-canvas.js";
 import audioAdapterWebAudio from "/sikisai.js/core/audio-adapter-web-audio.js";
 
@@ -19,7 +19,7 @@ import audioAdapterWebAudio from "/sikisai.js/core/audio-adapter-web-audio.js";
 // `;
 // document.head.appendChild(style);
 
-import sceneMain from "./scene-main.js";
+import sceneMain from "./scene-main.ts";
 
 let canvas = document.querySelector("#canvas");
 let canvasSub = document.querySelector("#canvasSub");
@@ -29,12 +29,12 @@ canvas.addEventListener("click", () => {
 });
 canvas.focus();
 
-let gadpt = new graphicsAdapterCanvas.GraphicsAdapterCanvas();
+let gadpt = new GraphicsAdapterCanvas();
 gadpt.addContext("main", canvas.getContext("2d"));
 gadpt.addContext("sub", canvasSub.getContext("2d"));
 gadpt.changeContext("main");
 let iadpt = new interfaceAdapterCanvas.InterfaceAdapterCanvas(canvas);
-let fpsc = new fpsController.FPSController();
+let fpsc = new FPSController();
 let aadpt = new audioAdapterWebAudio.AudioAdapterWebAudio();
 
 let scMain = new sceneMain.SceneMain(fpsc, gadpt, iadpt, aadpt);

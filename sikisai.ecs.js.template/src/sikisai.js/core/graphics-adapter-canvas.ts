@@ -1,7 +1,7 @@
-import graphicsAdapter from "./graphics-adapter.js";
+import GraphicsAdapter, { GraphicsContextId, GraphicsContext } from "./graphics-adapter.ts";
 import spriteCanvas from "./sprite-canvas.js";
 
-class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
+export default class GraphicsAdapterCanvas extends GraphicsAdapter {
   constructor() {
     super();
   }
@@ -12,8 +12,18 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     c.translate(-cp.x, -cp.y);
   }
 
-  line(x1, y1, x2, y2, opts = {}) {
-    let c = this.currentContext.context;
+  line(x1, y1, x2, y2, opts: {
+    smoothing?: boolean,
+    shadowColor?: string,
+    shadowBlur?: number,
+    shadowOffsetX?: number,
+    shadowOffsetY?: number,
+    strokeStyle?: string,
+    lineWidth?: number,
+    lineDash?: Array<number>,
+    globalAlpha?: number,
+  } = {}): void {
+    let c: any = this.currentContext.context;
     let beforeAlpha = c.globalAlpha;
     c.save();
     this.cameraTranslate();
@@ -52,7 +62,7 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     c.restore();
   }
 
-  rect(x1, y1, x2, y2, opts = {}) {
+  rect(x1, y1, x2, y2, opts: any = {}) {
     let c = this.currentContext.context;
     c.save();
     this.cameraTranslate();
@@ -71,7 +81,7 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     c.restore();
   }
 
-  createSprite(opts = {}) {
+  createSprite(opts: any = {}) {
     let img = new Image();
     img.src = opts.path;
     let s = new spriteCanvas.SpriteCanvas(img);
@@ -89,7 +99,7 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     return s;
   }
 
-  createSpriteByAsyncGenerator(asyncfn, opts = {}) {
+  createSpriteByAsyncGenerator(asyncfn, opts: any = {}) {
     let img = new Image();
     img.width = opts.width ?? 0;
     img.height = opts.height ?? 0;
@@ -100,7 +110,7 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     return s;
   }
 
-  draw(sprite, x, y, opts = {}) {
+  draw(sprite, x, y, opts: any = {}) {
     let c = this.currentContext.context;
     let beforeAlpha = c.globalAlpha;
     c.save();
@@ -159,7 +169,7 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     c.restore();
   }
 
-  text(str, x, y, opts = {}) {
+  text(str, x, y, opts: any = {}) {
     let c = this.currentContext.context;
     c.save();
     this.cameraTranslate();
@@ -187,7 +197,7 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     c.restore();
   }
 
-  arc(x, y, radius, opts = {}) {
+  arc(x, y, radius, opts: any = {}) {
     let c = this.currentContext.context;
     c.save();
     this.cameraTranslate();
@@ -218,7 +228,7 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     c.restore();
   }
 
-  ellipse(x, y, w, h, opts = {}) {
+  ellipse(x, y, w, h, opts: any = {}) {
     let c = this.currentContext.context;
     c.save();
     this.cameraTranslate();
@@ -234,15 +244,11 @@ class GraphicsAdapterCanvas extends graphicsAdapter.GraphicsAdapter {
     c.restore();
   }
 
-  width() {
+  width(): number {
     return this.currentContext.context.canvas.clientWidth;
   }
 
-  height() {
+  height(): number {
     return this.currentContext.context.canvas.clientHeight;
   }
 }
-
-export default {
-  GraphicsAdapterCanvas: GraphicsAdapterCanvas,
-};

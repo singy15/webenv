@@ -1,6 +1,18 @@
 // set updateFn and drawFn, then call start()
 
-class FPSController {
+export default class FPSController {
+  updateFn: Function;
+  drawFn: Function;
+  fps: number;
+  targetInterval: number;
+  updateLoadCoeff: number;
+  prevTime: number;
+  enabled: boolean;
+  frames: number;
+  lastSec: number;
+  actualFps: number;
+  updateFrames: number;
+
   constructor() {
     this.updateFn = null;
     this.drawFn = null;
@@ -14,7 +26,7 @@ class FPSController {
     this.actualFps = 0;
     this.updateFrames = 1;
   }
-  
+
   setFps(desiredFps) {
     this.fps = desiredFps;
     this.targetInterval = 1000 / this.fps;
@@ -70,6 +82,3 @@ class FPSController {
   }
 }
 
-export default {
-  FPSController: FPSController,
-};

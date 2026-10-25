@@ -1,5 +1,5 @@
 import scene from "/sikisai.js/core/scene.js";
-import { Registry, TaskPriority } from "/sikisai.js/core/ecs.js";
+import { Registry, TaskPriority } from "../sikisai.js/core/ecs.ts";
 import vector from "/sikisai.js/core/vector.js";
 const v$ = vector.Vector.$;
 import { updateTimer } from "./ecs/systems/timer-sys.js";

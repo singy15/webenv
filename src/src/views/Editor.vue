@@ -1097,10 +1097,10 @@ async function openSession(session) {
   // resetMonaco();
 
   //// create models for *.d.ts to load type declarations.
-  await loadTypeDeclarationsForTypeScript(session.oid);
+  loadTypeDeclarationsForTypeScript(session.oid);
 
   if (loadAllScriptOnLoad.value) {
-    await loadAllSourceCodeForTypeScript(session.oid);
+    loadAllSourceCodeForTypeScript(session.oid);
   }
 }
 

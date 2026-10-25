@@ -1097,7 +1097,11 @@ async function openSession(session) {
   // resetMonaco();
 
   //// create models for *.d.ts to load type declarations.
-  loadTypeDeclarationsForTypeScript(session.oid);
+  await loadTypeDeclarationsForTypeScript(session.oid);
+
+  if (loadAllScriptOnLoad.value) {
+    await loadAllSourceCodeForTypeScript(session.oid);
+  }
 }
 
 async function loadTypeDeclarationsForTypeScript(appOid) {
@@ -1128,6 +1132,48 @@ async function loadTypeDeclarationsForTypeScript(appOid) {
       // });
 
       // models[path] = model;
+
+
+
+      await modelRepository.requestModel(currentApp.value, path);
+    }
+  }
+}
+
+async function loadAllSourceCodeForTypeScript(appOid) {
+  const files = (await appApi.getAppByOid(appOid)).files;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = await appApi.getFile(files[i]);
+    const path = file.path;
+
+    if (
+      path.endsWith(".d.ts") ||
+      path.endsWith(".js") ||
+      path.endsWith(".ts") /*&& !models[path]*/
+    ) {
+      // const uri = monaco.Uri.parse("file://" + path);
+
+      // let language = "text";
+      // let ext = path.split(".");
+      // if (ext.length > 0 && appApi.languageByExtension(ext.slice(-1)[0])) {
+      //   language = appApi.languageByExtension(ext.slice(-1)[0]);
+      // }
+
+      // const model = monaco.editor.createModel(file.text, language, uri);
+
+      // model.onDidChangeContent((event) => {
+      //   ((ed, val) => {
+      //     // XXX: setSaveTimeoutEx does not non-tabbed model, thus modifying *.d.ts file is not supported for now.
+      //     //      but, if we can set/reset onDidChangeContext handler on opening file, no need for setting up handler on create model.
+      //     // ti.modified = true;
+      //     // setSaveTimeoutEx(tabitem, model);
+      //   })(editor, event);
+      // });
+
+      // models[path] = model;
+
+            // console.log("load", path);
 
       await modelRepository.requestModel(currentApp.value, path);
     }
@@ -1638,6 +1684,14 @@ const clearConsoleOnLoad = ref(
 function changeClearConsoleOnLoad() {
   storageUtil.setStorage("clearConsoleOnLoad", clearConsoleOnLoad.value);
 }
+
+const loadAllScriptOnLoad = ref(
+  storageUtil.getStorage("loadAllScriptOnLoad", true),
+);
+
+function changeLoadAllScriptOnLoad() {
+  storageUtil.setStorage("loadAllScriptOnLoad", loadAllScriptOnLoad.value);
+}
 </script>
 
 <template>
@@ -1964,6 +2018,15 @@ function changeClearConsoleOnLoad() {
           @change="changeClearConsoleOnLoad"
         />
         Clear Console on Load
+      </label>
+      <br />
+      <label>
+        <input
+          type="checkbox"
+          v-model="loadAllScriptOnLoad"
+          @change="changeLoadAllScriptOnLoad"
+        />
+        Load All Script on Load
       </label>
       <br />
       <span class="clickable button1" @click="closeConfig">Close</span>

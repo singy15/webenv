@@ -305,9 +305,11 @@ function createMonacoEditor(
   setTimeout(() => {
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       // target: monaco.languages.typescript.ScriptTarget.ESNext,
-      // module: monaco.languages.typescript.ModuleKind.ESNext,
+      module: monaco.languages.typescript.ModuleKind.ESNext,
       // moduleResolution:
-      //   monaco.languages.typescript.ModuleResolutionKind.Bundler,
+      //   // monaco.languages.typescript.ModuleResolutionKind.Bundler,
+      //   100,
+      allowJs: true,
       allowImportingTsExtensions: true,
       // noEmit: true,
     });
@@ -1133,8 +1135,6 @@ async function loadTypeDeclarationsForTypeScript(appOid) {
 
       // models[path] = model;
 
-
-
       await modelRepository.requestModel(currentApp.value, path);
     }
   }
@@ -1173,7 +1173,7 @@ async function loadAllSourceCodeForTypeScript(appOid) {
 
       // models[path] = model;
 
-            // console.log("load", path);
+      // console.log("load", path);
 
       await modelRepository.requestModel(currentApp.value, path);
     }

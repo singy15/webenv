@@ -415,6 +415,10 @@ class ArraySparseSet {
     return this._data[this._sparse[id]];
   }
 
+  getUnsafe(id) {
+    return this._data[this._sparse[id]];
+  }
+
   getOrNull(id) {
     const idx = this._sparse[id];
     return idx >= 0 ? this._data[idx] : null;
@@ -512,12 +516,13 @@ class Archetype {
     return j === queryKey.length;
   }
 
-  constructor(componentCtorSet, maxEntityCount = 10000) {
+  constructor(componentCtorSet, maxEntityCount = 10000, componentStoresMap) {
     this._maxEntityCount = maxEntityCount;
     this._componentCtorSet = new Set();
     for (let ctor of componentCtorSet) {
       this._componentCtorSet.add(ctor);
     }
+    this._componentStoresMap = componentStoresMap;
     this._key = Archetype.toKey(componentCtorSet);
     this._entities = new ArraySparseSet(this._maxEntityCount);
   }
@@ -540,6 +545,10 @@ class Archetype {
 
   entities() {
     return this._entities.keys();
+  }
+
+  getStore(componentCtor) {
+    return this._componentStoresMap.get(componentCtor);
   }
 }
 
@@ -685,15 +694,20 @@ class Registry {
     return this._commandBuffer.createEntity(...components);
   }
 
+  _getComponentStore(componentCtor) {
+    let store = this._compCtorToCompStoreMap.get(componentCtor);
+    if (!store) {
+      store = new ArraySparseSet(this._maxEntityCount);
+      this._compCtorToCompStoreMap.set(componentCtor, store);
+    }
+    return store;
+  }
+
   addComponent(entity, ...components) {
     //// add components
     for (let component of components) {
       const ctor = component.constructor;
-      let store = this._compCtorToCompStoreMap.get(ctor);
-      if (!store) {
-        store = new ArraySparseSet(this._maxEntityCount);
-        this._compCtorToCompStoreMap.set(ctor, store);
-      }
+      let store = this._getComponentStore(ctor);
       if (store.has(entity))
         throw new Error(`Entity [${entity} already has ${ctor.name}]`);
       store.set(entity, component);
@@ -734,7 +748,15 @@ class Registry {
     }
     if (!identifiedArchetype) {
       // create new archetype
-      const newArchetype = new Archetype(ctorsSet, this._maxEntityCount);
+      const stores = new Map();
+      for (const ctor of ctorsSet) {
+        stores.set(ctor, this._getComponentStore(ctor));
+      }
+      const newArchetype = new Archetype(
+        ctorsSet,
+        this._maxEntityCount,
+        stores,
+      );
       this._archetypes.push(newArchetype);
       this._archetypeKeyStrToArchetype.set(keyStr, newArchetype);
       identifiedArchetype = newArchetype;
@@ -757,6 +779,15 @@ class Registry {
     return (
       this._compCtorToCompStoreMap.get(componentCtor)?.getOrNull(entity) ?? null
     );
+  }
+
+  getComponentArray(entity, ...componentCtors) {
+    return componentCtors.map((componentCtor) => {
+      return (
+        this._compCtorToCompStoreMap.get(componentCtor)?.getOrNull(entity) ??
+        null
+      );
+    });
   }
 
   _destroyEntity(entity) {
@@ -859,29 +890,92 @@ class Registry {
     return matchedArchetypes;
   }
 
-  *query(exact, ...requiredComponentCtors) {
-    for (const archetype of this._findArchetype(
-      requiredComponentCtors,
-      exact,
-    )) {
-      for (const entity of archetype.entities()) {
-        if (this._entityState[entity] !== EntityState.Active) continue;
-        yield entity;
+  query(exact, ...requiredComponentCtors) {
+    const _exact = exact;
+    const _requiredComponentCtors = requiredComponentCtors;
+    const self = this;
+    const stores = new Map();
+    const requiredSet = new Set(_requiredComponentCtors);
+    const getc = (componentCtor, id) => {
+      let store = stores.get(componentCtor);
+      if (!store) {
+        if (!requiredSet.has(componentCtor))
+          throw new Error(`Component [${componentCtor.name}] is not in query`);
+        store = self._getComponentStore(componentCtor);
+        stores.set(componentCtor, store);
       }
-    }
+      return store.getUnsafe(id);
+    };
+    const getcByArchetype = (componentCtor, id, archetype) => {
+      if (!requiredSet.has(componentCtor))
+        throw new Error(`Component [${componentCtor.name}] is not in query`);
+      return archetype.getStore(componentCtor).getUnsafe(id);
+    };
+    return {
+      *[Symbol.iterator]() {
+        const view = {
+          id: null,
+          archetype: null,
+          _stores: null,
+          get(ctor) {
+            return getcByArchetype(ctor, view.id, view.archetype);
+          },
+          arrayBy(...ctors) {
+            return ctors.map((c) =>
+              getcByArchetype(c, view.id, view.archetype),
+            );
+          },
+          array() {
+            // return _requiredComponentCtors.map((c) =>
+            //   getcByArchetype(c, view.id, view.archetype),
+            // );
+            return view._stores.map((s) => s.getUnsafe(view.id));
+          },
+        };
+        for (const archetype of self._findArchetype(
+          _requiredComponentCtors,
+          _exact,
+        )) {
+          const stores = _requiredComponentCtors.map((c) =>
+            archetype.getStore(c),
+          );
+          for (const entity of archetype.entities()) {
+            if (self._entityState[entity] !== EntityState.Active) continue;
+            view.id = entity;
+            view.archetype = archetype;
+            view._stores = stores;
+            yield view;
+          }
+        }
+      },
+      toArray() {
+        const result = [];
+        for (const archetype of self._findArchetype(
+          _requiredComponentCtors,
+          _exact,
+        )) {
+          for (const entity of archetype.entities()) {
+            if (self._entityState[entity] !== EntityState.Active) continue;
+            result.push(entity);
+          }
+        }
+        return result;
+      },
+      getById: getc,
+    };
   }
 
-  queryEach(exact, fn, ...requiredComponentCtors) {
-    for (const archetype of this._findArchetype(
-      requiredComponentCtors,
-      exact,
-    )) {
-      for (const entity of archetype.entities()) {
-        if (this._entityState[entity] !== EntityState.Active) continue;
-        fn(entity, archetype);
-      }
-    }
-  }
+  // queryEach(exact, fn, ...requiredComponentCtors) {
+  //   for (const archetype of this._findArchetype(
+  //     requiredComponentCtors,
+  //     exact,
+  //   )) {
+  //     for (const entity of archetype.entities()) {
+  //       if (this._entityState[entity] !== EntityState.Active) continue;
+  //       fn(entity, archetype);
+  //     }
+  //   }
+  // }
 
   count(exact, ...requiredComponentCtors) {
     let entityCount = 0;

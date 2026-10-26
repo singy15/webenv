@@ -3,7 +3,7 @@
 // import char from "../entities/char.js";
 // import killable from "../components/killable.js";
 // import physics from "../components/physics.js";
-import { PhysicsComponent } from "../components/physics.js";
+import { PhysicsComponent } from "../components/physics.ts";
 import { SparkComponent } from "../components/spark.js";
 import { TimerComponent } from "../components/timer.js";
 import { DownwardTriggerComponent } from "../components/downward-trigger.js";

@@ -4,7 +4,7 @@ import vector from "/sikisai.js/core/vector.js";
 const v$ = vector.Vector.$;
 import { updateTimer } from "./ecs/systems/timer-sys.js";
 import { clearScreen, entityMonitorSystem } from "./ecs/systems/common.js";
-import { updatePhysics, downwardTrigger } from "./ecs/systems/physics.js";
+import { updatePhysics, downwardTrigger } from "./ecs/systems/physics-sys.ts";
 import { drawSpark } from "./ecs/systems/spark.js";
 import { spawnProjector } from "./ecs/factory/fireworks.ts";
 

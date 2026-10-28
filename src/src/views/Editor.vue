@@ -304,7 +304,7 @@ function createMonacoEditor(
 
   setTimeout(() => {
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      // target: monaco.languages.typescript.ScriptTarget.ESNext,
+      target: monaco.languages.typescript.ScriptTarget.ESNext,
       module: monaco.languages.typescript.ModuleKind.ESNext,
       // moduleResolution:
       //   // monaco.languages.typescript.ModuleResolutionKind.Bundler,

@@ -955,7 +955,17 @@ class Registry {
     return matchedArchetypes;
   }
 
-  query(exact, ...requiredComponentCtors) {
+  query<T extends { new(...args: any[]): any }[]>(exact, ...requiredComponentCtors: T):
+    Iterable<{
+      id: any;
+      archetype: any;
+      get<K extends keyof T>(ctor: T[K]): T[K] extends { new(...args: any[]): any } ? InstanceType<T[K]> | null : never;
+      array(): { [K in keyof T]: InstanceType<T[K]> | null };
+      arrayBy<U extends { new(...args: any[]): any }[]>(...ctors: U): { [K in keyof U]: InstanceType<U[K]> | null };
+    }> & {
+      toArray(): any[];
+      getById: typeof getc;
+    } {
     const _exact = exact;
     const _requiredComponentCtors = requiredComponentCtors;
     const self = this;
@@ -988,7 +998,7 @@ class Registry {
           arrayBy(...ctors) {
             return ctors.map((c) =>
               getcByArchetype(c, view.id, view.archetype),
-            );
+            ) as any;
           },
           array() {
             // return _requiredComponentCtors.map((c) =>

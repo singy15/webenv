@@ -891,15 +891,28 @@ async function openFile(item) {
 }
 
 async function selectTab(tabitem, setModel = true) {
+  let tmp = tabs.selected;
   tabs.selected = tabitem;
   if (editor && setModel) {
     // editor.setModel(models[tabitem.path]);
     // console.log("loading", tabitem, tabitem.path);
+
+    if (tmp) {
+      let viewState = editor.saveViewState();
+      modelRepository.saveViewState(tmp.path, viewState);
+    }
+
     const model = await modelRepository.requestModel(
       currentApp.value,
       tabitem.path,
     );
     editor.setModel(model);
+
+    let savedViewState = modelRepository.getViewState(tabitem.path);
+    if (savedViewState) {
+      editor.restoreViewState(savedViewState);
+    }
+
     revalidateModel(model);
   }
 }

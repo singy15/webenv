@@ -4,6 +4,7 @@ import appApi from "./app.js";
 export default class ModelRepository {
   constructor() {
     this.models = {}; // path -> model
+    this.viewStates = {}; // path -> model
     this.saveTimeouts = {}; // path -> timeout
   }
 
@@ -51,10 +52,19 @@ export default class ModelRepository {
     throw new Error(`no file matching path [${filePath}]`);
   }
 
+  saveViewState(filePath, viewState) {
+    this.viewStates[filePath] = viewState;
+  }
+
+  getViewState(filePath) {
+    return this.viewStates[filePath];
+  }
+
   reset() {
     for (const model of monaco.editor.getModels()) {
       model.dispose();
     }
     this.models = {};
+    this.viewStates = {};
   }
 }

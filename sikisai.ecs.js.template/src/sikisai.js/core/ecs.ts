@@ -841,6 +841,20 @@ class Registry {
     });
   }
 
+  // same as getComponentArray
+  // shorter and typed
+  getc<T extends { new(...args: any[]): any }[]>(
+    entity,
+    ...componentCtors: T
+  ): { [K in keyof T]: InstanceType<T[K]> | null } {
+    return componentCtors.map((componentCtor) => {
+      return (
+        this._compCtorToCompStoreMap.get(componentCtor)?.getOrNull(entity) ??
+        null
+      );
+    }) as any;
+  }
+
   _destroyEntity(entity) {
     if (this._entityState[entity] === EntityState.Deleted)
       throw new Error(`Entity [${entity}] is already deleted.`);

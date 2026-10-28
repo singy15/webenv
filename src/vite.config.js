@@ -19,7 +19,7 @@ export default defineConfig({
     sourceMap: "inline",
     assetsInlineLimit: 100000000,
   },
-  assetsInclude: ["**/*.wasm"],
+  assetsInclude: ["**/*.wasm", "**/*.ttf"],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
